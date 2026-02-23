@@ -330,12 +330,13 @@ export function ChatbotWidget(): React.ReactElement {
   const showChat = state === 'chat' || state === 'menu' || state === 'replied';
 
   useEffect(() => {
-    if (isChatOpen && !showChat) {
+    if (isChatOpen) {
       setState('chat');
-    } else if (!isChatOpen && showChat) {
+    } else {
       setState('default');
     }
-  }, [isChatOpen, showChat]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isChatOpen]);
 
   useEffect(() => {
     if (showChat) {
