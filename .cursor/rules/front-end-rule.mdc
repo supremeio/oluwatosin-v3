@@ -1,0 +1,668 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules — Front-End Engineering Standards
+# For design engineers building production-grade, collaboration-ready code
+# ──────────────────────────────────────────────────────────────────────────
+
+## Role & Context
+
+You are a senior front-end engineer assisting a design engineer who builds pixel-perfect interfaces from Figma designs. Every line of code you write must be:
+
+- **Production-ready**: No shortcuts, no placeholder logic, no "TODO" comments left behind.
+- **Handoff-friendly**: Any front-end or full-stack developer should be able to read, extend, and maintain this codebase without a walkthrough.
+- **API-integration-ready**: Components must cleanly separate UI from data, making it trivial to wire up real endpoints.
+
+---
+
+## 1. Project Structure & Architecture
+
+### File Organization
+
+Follow a feature-based (colocation) structure, not a type-based one:
+
+```
+src/
+├── app/                    # Route pages / layouts (Next.js App Router)
+├── features/               # Feature modules (self-contained)
+│   └── auth/
+│       ├── components/     # Feature-specific components
+│       ├── hooks/          # Feature-specific hooks
+│       ├── utils/          # Feature-specific helpers
+│       ├── types.ts        # Feature-specific types
+│       └── index.ts        # Public API barrel export
+├── components/
+│   ├── ui/                 # Reusable primitives (Button, Input, Card, Modal)
+│   └── layout/             # Layout components (Header, Sidebar, Footer)
+├── hooks/                  # Shared custom hooks
+├── lib/                    # Shared utilities, configs, constants
+│   ├── api/                # API client, interceptors, endpoint definitions
+│   ├── utils/              # Pure helper functions
+│   └── constants.ts        # App-wide constants
+├── types/                  # Shared TypeScript types and interfaces
+├── styles/                 # Global styles, CSS variables, theme tokens
+└── providers/              # Context providers (theme, auth, query client)
+```
+
+### Naming Conventions
+
+- **Components**: PascalCase → `UserProfileCard.tsx`
+- **Hooks**: camelCase with `use` prefix → `useAuth.ts`
+- **Utilities**: camelCase → `formatCurrency.ts`
+- **Types/Interfaces**: PascalCase with descriptive names → `UserProfile`, `ApiResponse<T>`
+- **Constants**: UPPER_SNAKE_CASE → `MAX_RETRY_COUNT`
+- **CSS/Style files**: Match component name → `UserProfileCard.module.css`
+- **Test files**: Colocate with source → `UserProfileCard.test.tsx`
+- **Barrel exports**: Every directory with 2+ exports gets an `index.ts`
+
+---
+
+## 2. TypeScript Standards
+
+### Strict Typing — No Exceptions
+
+- **Never use `any`**. Use `unknown` when the type is genuinely uncertain, then narrow it.
+- **Never use `@ts-ignore` or `@ts-expect-error`** without a linked issue/ticket explaining why.
+- **Always define return types** for functions that are exported or non-trivial.
+- **Always type component props** with an interface, not inline.
+
+```tsx
+// ✅ Correct
+interface UserCardProps {
+  user: User;
+  onSelect: (userId: string) => void;
+  variant?: 'compact' | 'detailed';
+}
+
+export function UserCard({ user, onSelect, variant = 'compact' }: UserCardProps): React.ReactElement {
+  // ...
+}
+
+// ❌ Wrong — inline types, no return type, ambiguous props
+export function UserCard({ user, onSelect, variant }: { user: any; onSelect: any; variant: any }) {
+  // ...
+}
+```
+
+### Type Patterns
+
+- Use `interface` for object shapes that may be extended. Use `type` for unions, intersections, and computed types.
+- Use generics for reusable patterns: `ApiResponse<T>`, `PaginatedList<T>`.
+- Define API response types in a dedicated `types/api.ts` or within the feature's `types.ts`.
+- Export types alongside the modules that use them.
+
+```tsx
+// API response wrapper — reusable across features
+interface ApiResponse<T> {
+  data: T;
+  meta?: PaginationMeta;
+  error?: ApiError;
+}
+
+interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+```
+
+---
+
+## 3. React & Component Patterns
+
+### Component Architecture
+
+- **One component per file**. No exceptions.
+- **Functional components only**. No class components.
+- **Keep components under 150 lines**. If larger, decompose.
+- **Separate concerns**: UI rendering (presentational) vs. data/logic (container or hook).
+
+### Component Hierarchy
+
+```
+Page → Feature Container → Composed Components → UI Primitives
+```
+
+- **UI Primitives** (`components/ui/`): Zero business logic. Accept props, render UI. Style variants via props.
+- **Feature Components** (`features/*/components/`): Combine primitives with feature logic.
+- **Pages** (`app/`): Compose features, handle routing/params, provide top-level data.
+
+### Props & State Best Practices
+
+```tsx
+// ✅ Explicit, documented props with sensible defaults
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  isLoading?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+}
+
+export function Button({
+  variant = 'primary',
+  size = 'md',
+  isLoading = false,
+  leftIcon,
+  rightIcon,
+  children,
+  disabled,
+  ...rest
+}: ButtonProps): React.ReactElement {
+  return (
+    <button
+      className={cn(styles.base, styles[variant], styles[size])}
+      disabled={disabled || isLoading}
+      {...rest}
+    >
+      {isLoading ? <Spinner size={size} /> : leftIcon}
+      <span>{children}</span>
+      {rightIcon}
+    </button>
+  );
+}
+```
+
+### Hooks Rules
+
+- Custom hooks must start with `use`.
+- Extract logic into hooks when: it's reused, it manages side effects, or the component exceeds 80 lines of logic.
+- Keep hooks focused — one responsibility per hook.
+- Always handle loading, error, and empty states.
+
+```tsx
+// ✅ Clean custom hook with proper state management
+function useUsers(filters: UserFilters) {
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['users', filters],
+    queryFn: () => api.users.list(filters),
+  });
+
+  return {
+    users: data?.data ?? [],
+    pagination: data?.meta,
+    isLoading,
+    error,
+    isEmpty: !isLoading && data?.data.length === 0,
+  };
+}
+```
+
+---
+
+## 4. Styling Standards
+
+### Approach: Tailwind CSS (preferred) or CSS Modules
+
+- Use **Tailwind CSS** as the primary styling method.
+- For complex or dynamic styles, use **CSS Modules** as a fallback.
+- Never use inline `style={{}}` objects except for truly dynamic values (e.g., computed positions, user-set colors).
+- Never write global CSS except for resets, CSS variables, and font-face declarations.
+
+### Tailwind Conventions
+
+- Use a utility-first approach, but extract repeated patterns into components — not `@apply` classes.
+- Leverage Tailwind's design tokens (spacing, color, typography) to enforce consistency.
+- Use `cn()` or `clsx()` for conditional classes.
+
+```tsx
+// ✅ Clean Tailwind with conditional logic
+<div className={cn(
+  'rounded-lg border p-4 transition-shadow',
+  isSelected ? 'border-blue-500 shadow-md' : 'border-gray-200 hover:shadow-sm',
+  className
+)} />
+```
+
+### Design Tokens
+
+Define all design decisions as tokens in `tailwind.config.ts` or CSS variables:
+
+```css
+/* styles/tokens.css */
+:root {
+  --color-brand-primary: #2563eb;
+  --color-brand-secondary: #7c3aed;
+  --radius-default: 0.5rem;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --font-display: 'Your Display Font', sans-serif;
+  --font-body: 'Your Body Font', sans-serif;
+  --transition-default: 150ms ease;
+}
+```
+
+### Responsive Design
+
+- **Mobile-first**: Write base styles for mobile, layer up with `sm:`, `md:`, `lg:`, `xl:`.
+- Use container queries where appropriate for component-level responsiveness.
+- Test at breakpoints: 320px, 375px, 768px, 1024px, 1280px, 1440px.
+- Never use fixed pixel widths for layout containers.
+
+---
+
+## 5. API Integration & Data Layer
+
+### API Client Setup
+
+Centralize all API communication in `lib/api/`:
+
+```tsx
+// lib/api/client.ts
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+
+async function request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.json());
+  }
+
+  return response.json();
+}
+
+export const api = {
+  get: <T>(endpoint: string) => request<T>(endpoint),
+  post: <T>(endpoint: string, data: unknown) =>
+    request<T>(endpoint, { method: 'POST', body: JSON.stringify(data) }),
+  put: <T>(endpoint: string, data: unknown) =>
+    request<T>(endpoint, { method: 'PUT', body: JSON.stringify(data) }),
+  patch: <T>(endpoint: string, data: unknown) =>
+    request<T>(endpoint, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: <T>(endpoint: string) =>
+    request<T>(endpoint, { method: 'DELETE' }),
+};
+```
+
+### Data Fetching with React Query (TanStack Query)
+
+- Use React Query for all server state.
+- Define query keys as constants.
+- Colocate queries within feature directories.
+- Always implement error boundaries and loading states.
+
+```tsx
+// features/users/hooks/useUsers.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+export const userKeys = {
+  all: ['users'] as const,
+  lists: () => [...userKeys.all, 'list'] as const,
+  list: (filters: UserFilters) => [...userKeys.lists(), filters] as const,
+  details: () => [...userKeys.all, 'detail'] as const,
+  detail: (id: string) => [...userKeys.details(), id] as const,
+};
+
+export function useUsers(filters: UserFilters) {
+  return useQuery({
+    queryKey: userKeys.list(filters),
+    queryFn: () => api.get<PaginatedList<User>>(`/users?${toQueryString(filters)}`),
+  });
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateUserPayload) => api.post<User>('/users', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+    },
+  });
+}
+```
+
+### State Management Rules
+
+- **Server state**: React Query / SWR. Never store API data in local state or context.
+- **UI state (local)**: `useState`, `useReducer`. For single-component concerns.
+- **UI state (shared)**: Zustand or React Context. For cross-component UI state like modals, sidebars.
+- **URL state**: Use URL search params for filterable/shareable UI state.
+- **Form state**: React Hook Form + Zod for validation.
+
+---
+
+## 6. Form Handling & Validation
+
+Always use React Hook Form + Zod:
+
+```tsx
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const createUserSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  role: z.enum(['admin', 'member', 'viewer']),
+});
+
+type CreateUserFormData = z.infer<typeof createUserSchema>;
+
+export function CreateUserForm({ onSubmit }: { onSubmit: (data: CreateUserFormData) => void }) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateUserFormData>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: { role: 'member' },
+  });
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <FormField label="Name" error={errors.name?.message}>
+        <Input {...register('name')} />
+      </FormField>
+      <FormField label="Email" error={errors.email?.message}>
+        <Input type="email" {...register('email')} />
+      </FormField>
+      <Button type="submit" isLoading={isSubmitting}>
+        Create User
+      </Button>
+    </form>
+  );
+}
+```
+
+---
+
+## 7. Error Handling
+
+- Every async operation must have error handling.
+- Use error boundaries for component-level crash recovery.
+- Show user-friendly error messages — never expose raw API errors.
+- Log errors with context for debugging.
+
+```tsx
+// components/ErrorBoundary.tsx
+'use client';
+
+import { Component, type ReactNode } from 'react';
+
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  state: State = { hasError: false };
+
+  static getDerivedStateFromError(): State {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    console.error('ErrorBoundary caught:', error, info);
+  }
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return this.props.fallback ?? <ErrorFallback />;
+    }
+    return this.props.children;
+  }
+}
+```
+
+---
+
+## 8. Accessibility (a11y)
+
+Accessibility is not optional. Every component must meet WCAG 2.1 AA:
+
+- All interactive elements must be keyboard-navigable.
+- Use semantic HTML: `<button>` for actions, `<a>` for navigation, `<nav>`, `<main>`, `<section>`, `<article>`.
+- Never use `<div>` or `<span>` for interactive elements.
+- All images need `alt` text. Decorative images use `alt=""`.
+- Form inputs must have associated `<label>` elements.
+- Use `aria-*` attributes only when semantic HTML is insufficient.
+- Color contrast must meet 4.5:1 for normal text, 3:1 for large text.
+- Focus states must be visible and consistent.
+- Manage focus for modals, drawers, and dynamic content.
+
+```tsx
+// ✅ Accessible modal pattern
+<dialog
+  ref={dialogRef}
+  aria-labelledby="modal-title"
+  aria-describedby="modal-description"
+  onClose={handleClose}
+>
+  <h2 id="modal-title">Confirm Deletion</h2>
+  <p id="modal-description">This action cannot be undone.</p>
+  <div role="group" aria-label="Actions">
+    <Button variant="ghost" onClick={handleClose}>Cancel</Button>
+    <Button variant="danger" onClick={handleConfirm}>Delete</Button>
+  </div>
+</dialog>
+```
+
+---
+
+## 9. Performance
+
+- **Images**: Always use `next/image` or `<picture>` with `srcset`. Use WebP/AVIF.
+- **Code splitting**: Use `React.lazy()` + `Suspense` for route-level splitting. Use dynamic imports for heavy libraries.
+- **Memoization**: Use `useMemo` and `useCallback` only when you can identify the expensive recomputation. Do not prematurely optimize.
+- **Lists**: Virtualize lists with 50+ items using `@tanstack/react-virtual`.
+- **Bundle size**: Monitor with `@next/bundle-analyzer`. No single page JS bundle should exceed 200KB gzipped.
+- **Web Vitals**: Target LCP < 2.5s, FID < 100ms, CLS < 0.1.
+
+---
+
+## 10. Code Quality & Conventions
+
+### General Rules
+
+- **DRY**: If you write the same pattern 3 times, extract it.
+- **Single Responsibility**: Each function, hook, and component does one thing.
+- **Early returns**: Prefer guard clauses over deeply nested conditionals.
+- **Immutability**: Never mutate state directly. Use spread operators or `structuredClone`.
+- **No magic values**: Extract numbers and strings into named constants.
+- **Meaningful names**: `isUserAuthenticated` over `flag`. `handleFormSubmit` over `doStuff`.
+
+### Import Order
+
+Enforce consistent import ordering:
+
+```tsx
+// 1. React / framework
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+// 2. External libraries
+import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
+
+// 3. Internal — absolute imports
+import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/features/auth';
+import { cn } from '@/lib/utils';
+
+// 4. Internal — relative imports
+import { UserAvatar } from './UserAvatar';
+import type { UserCardProps } from './types';
+
+// 5. Styles
+import styles from './UserCard.module.css';
+```
+
+### Comments
+
+- Write self-documenting code. If you need a comment, the code may need refactoring.
+- Use JSDoc for exported functions and complex utilities.
+- Use `// TODO(name): description` with an owner for known technical debt.
+- Never leave commented-out code in the codebase.
+
+```tsx
+/**
+ * Formats a number as currency string.
+ * @param amount  - Raw number (e.g., 1234.5)
+ * @param currency - ISO 4217 code (default: 'USD')
+ * @returns Formatted string (e.g., '$1,234.50')
+ */
+export function formatCurrency(amount: number, currency = 'USD'): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+}
+```
+
+---
+
+## 11. Git & Collaboration
+
+### Commit Messages
+
+Follow Conventional Commits:
+
+```
+feat(auth): add social login with Google OAuth
+fix(dashboard): resolve chart rendering on mobile viewports
+refactor(api): extract shared request interceptor
+style(button): update hover states for ghost variant
+docs(readme): add local development setup instructions
+chore(deps): upgrade React Query to v5.x
+```
+
+### Branch Naming
+
+```
+feature/auth-social-login
+fix/dashboard-chart-mobile
+refactor/api-client-interceptors
+```
+
+### Pull Request Checklist
+
+Before every PR, verify:
+
+- [ ] TypeScript compiles with zero errors (`tsc --noEmit`)
+- [ ] Linter passes (`eslint .`)
+- [ ] All components are responsive (tested at 320px–1440px)
+- [ ] All interactive elements are keyboard accessible
+- [ ] Loading, error, and empty states are handled
+- [ ] No `console.log` statements left in production code
+- [ ] New components have proper TypeScript interfaces exported
+- [ ] API types match the backend contract
+
+---
+
+## 12. Environment & Configuration
+
+- All environment variables must be typed and validated at build time.
+- Use `.env.local` for local development, never commit secrets.
+- Prefix client-side variables with `NEXT_PUBLIC_` (Next.js).
+
+```tsx
+// lib/env.ts
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NEXT_PUBLIC_API_URL: z.string().url(),
+  NEXT_PUBLIC_APP_ENV: z.enum(['development', 'staging', 'production']),
+});
+
+export const env = envSchema.parse({
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
+});
+```
+
+---
+
+## 13. Testing Strategy
+
+- **Unit tests**: Pure functions, utilities, hooks (Vitest)
+- **Component tests**: Render + interaction (React Testing Library)
+- **E2E tests**: Critical user flows (Playwright)
+- Test behavior, not implementation.
+
+```tsx
+// UserCard.test.tsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { UserCard } from './UserCard';
+
+describe('UserCard', () => {
+  it('displays user name and triggers selection callback', async () => {
+    const handleSelect = vi.fn();
+    render(<UserCard user={mockUser} onSelect={handleSelect} />);
+
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /select/i }));
+    expect(handleSelect).toHaveBeenCalledWith(mockUser.id);
+  });
+});
+```
+
+---
+
+## 14. Handoff & Documentation
+
+### Every feature must include:
+
+1. **Exported types** — so backend developers can see the data contract.
+2. **Barrel exports** (`index.ts`) — so other developers can import cleanly.
+3. **JSDoc on public APIs** — so IDE tooltips are informative.
+4. **README.md in complex features** — explaining architecture decisions.
+
+### API Contract Documentation
+
+When building UI against an API, always create a typed contract:
+
+```tsx
+// features/orders/types.ts
+
+/** GET /api/orders — Query parameters */
+export interface OrderListParams {
+  status?: OrderStatus;
+  page?: number;
+  pageSize?: number;
+  sortBy?: 'createdAt' | 'total';
+  sortOrder?: 'asc' | 'desc';
+}
+
+/** GET /api/orders — Response body */
+export interface OrderListResponse {
+  data: Order[];
+  meta: PaginationMeta;
+}
+
+/** POST /api/orders — Request body */
+export interface CreateOrderPayload {
+  items: Array<{ productId: string; quantity: number }>;
+  shippingAddressId: string;
+  paymentMethodId: string;
+}
+```
+
+This allows any back-end developer to immediately understand the expected interface without reading your component code.
+
+---
+
+## Summary of Absolute Rules
+
+1. **No `any` types.** Ever.
+2. **No inline styles** except for dynamic computed values.
+3. **No business logic in components** — extract to hooks or utils.
+4. **No raw `fetch` calls in components** — use the API client + React Query.
+5. **No untyped API responses** — every endpoint has a typed contract.
+6. **No inaccessible interactive elements** — semantic HTML + keyboard support.
+7. **No commented-out code** in committed files.
+8. **No unnamed magic values** — use constants.
+9. **Always handle loading, error, and empty states.**
+10. **Always make components responsive** from mobile up.

@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Neutral primitives — Light mode */
+    --neutral-000: #ffffff;
+    --neutral-100: #f3f6f8;
+    --neutral-200: #f3f6f8;
+    --neutral-300: #e2e8f0;
+    --neutral-600: #94a3b8;
+    --neutral-700: #475569;
+    --neutral-900: #232323;
+
+    /* Semantic background tokens */
+    --bg-main: var(--neutral-000);
+    --bg-secondary: var(--neutral-100);
+    --bg-tertiary: var(--neutral-200);
+    --bg-on-colour: var(--neutral-900);
+
+    /* Semantic text tokens */
+    --text-primary: var(--neutral-900);
+    --text-secondary: var(--neutral-700);
+    --text-on-colour: var(--neutral-000);
+
+    /* Semantic icon tokens */
+    --icon-active: var(--neutral-900);
+    --icon-inactive: var(--neutral-600);
+    --icon-on-colour: var(--neutral-000);
+
+    /* Semantic border tokens */
+    --border-primary: var(--neutral-300);
+    --border-active: var(--neutral-900);
+
+    /* Overlay tokens */
+    --overlay-page: rgba(35, 35, 35, 0.8);
+    --overlay-local: rgba(0, 0, 0, 0.8);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--font-figtree), system-ui, sans-serif;
+  }
+}
