@@ -364,7 +364,7 @@ export function ChatbotWidget(): React.ReactElement {
       <aside
         className={`fixed z-30 pointer-events-none ${
           showChat
-            ? 'inset-0 md:inset-auto md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))]'
+            ? 'top-[48px] bottom-[24px] left-[24px] right-[24px] md:inset-auto md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))]'
             : 'bottom-[24px] left-[24px] md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))] hidden md:block'
         }`}
         aria-label="Quick answer AI"
