@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { ProfileHeader } from '@/components/ProfileHeader';
 import { WorkSection } from '@/components/WorkBentoGrid';
 import { ArrowTopRightIcon } from '@/components/ui/ArrowTopRightIcon';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
@@ -20,25 +21,6 @@ const TOOLS = [
   { name: 'and', linked: false },
   { name: 'shadcn/ui', linked: true },
 ] as const;
-
-function ProfileHeader(): React.ReactElement {
-  return (
-    <header className="flex flex-col gap-[4px] items-start">
-      <h1 className="font-sora font-medium text-[16px] leading-[24px] uppercase text-text-primary">
-        Oluwatosin Kazeem
-      </h1>
-      <p className="font-figtree font-normal text-[12px] leading-[18px] uppercase text-text-secondary">
-        PRODUCT DESIGNER
-      </p>
-      <p className="font-figtree font-normal text-[12px] leading-[18px] uppercase text-text-secondary">
-        PORTFOLIO &apos;26
-      </p>
-      <LinkedText as="button" className="font-sora font-normal text-[12px] leading-normal uppercase text-text-primary">
-        portfolio history
-      </LinkedText>
-    </header>
-  );
-}
 
 function AboutSection(): React.ReactElement {
   return (
@@ -123,9 +105,9 @@ function MyProcessSection(): React.ReactElement {
           What it means
         </LinkedText>
       </div>
-      <div className="relative w-full" style={{ aspectRatio: '580 / 194' }}>
+      <div className="relative w-full" style={{ aspectRatio: '620 / 223' }}>
         <Image
-          src="/my process image.png"
+          src="/my process - light.svg"
           alt="Non-linear design process: Understand, Define, Sketch, Wireframe, Design & Iteration, Test & Refine"
           fill
           className="object-contain"

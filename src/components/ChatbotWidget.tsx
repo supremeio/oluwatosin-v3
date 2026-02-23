@@ -98,7 +98,7 @@ function TagsRow(): React.ReactElement {
 function ChatbotDefault({ onExpand }: { onExpand: () => void }): React.ReactElement {
   return (
     <div
-      className="bg-bg-on-colour rounded-[32px] p-[24px] flex items-start gap-[8px] w-[342px] cursor-pointer"
+      className="bg-bg-on-colour rounded-[32px] p-[24px] flex items-start gap-[8px] w-[342px] md:w-full cursor-pointer"
       onClick={onExpand}
       onKeyDown={(e) => e.key === 'Enter' && onExpand()}
       role="button"
@@ -122,7 +122,7 @@ function ChatbotDefault({ onExpand }: { onExpand: () => void }): React.ReactElem
 
 function ChatbotHover({ onStartChat, onClose }: { onStartChat: () => void; onClose: () => void }): React.ReactElement {
   return (
-    <div className="w-[calc(100vw-48px)] md:w-[375px] flex flex-col items-start pb-[32px] relative">
+    <div className="w-[calc(100vw-48px)] md:w-full flex flex-col items-start pb-[32px] relative">
       <DarkHeader onClose={onClose} />
       {/* Second card: white bg (bg-main #FFF) */}
       <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start gap-[40px] self-stretch -mb-[32px] shrink-0 relative bg-bg-main">
@@ -174,7 +174,7 @@ function ChatbotChat({
   }, [input, onSendUserMessage]);
 
   return (
-    <div className="w-[calc(100vw-48px)] md:w-[354px] flex flex-col items-start pb-[32px] relative">
+    <div className="w-[calc(100vw-48px)] md:w-full flex flex-col items-start pb-[32px] relative">
       <DarkHeader onClose={onClose} />
       <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start justify-between -mb-[32px] shrink-0 relative bg-bg-main" style={{ height: 574 }}>
         {/* Top: tags + messages */}
@@ -361,7 +361,7 @@ export function ChatbotWidget(): React.ReactElement {
         />
       )}
       <aside
-        className={`fixed z-30 pointer-events-none bottom-[24px] left-[24px] md:bottom-[40px] md:left-[40px] ${
+        className={`fixed z-30 pointer-events-none bottom-[24px] left-[24px] md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))] ${
           !showChat ? 'hidden md:block' : ''
         }`}
         aria-label="Quick answer AI"
