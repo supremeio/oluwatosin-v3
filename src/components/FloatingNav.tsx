@@ -27,7 +27,9 @@ export function FloatingNav(): React.ReactElement {
 
   return (
     <nav
-      className="fixed bottom-[24px] left-0 right-0 z-50 flex justify-center pointer-events-none"
+      className={`fixed bottom-[24px] left-0 right-0 z-50 justify-center pointer-events-none ${
+        isChatOpen ? 'hidden md:flex' : 'flex'
+      }`}
       aria-label="Main navigation"
     >
       <div className="relative flex gap-[2px] items-center rounded-[16px] pointer-events-auto">

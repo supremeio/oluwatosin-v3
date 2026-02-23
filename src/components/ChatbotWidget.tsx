@@ -174,9 +174,9 @@ function ChatbotChat({
   }, [input, onSendUserMessage]);
 
   return (
-    <div className="w-[calc(100vw-48px)] md:w-full flex flex-col items-start pb-[32px] relative">
+    <div className="w-full h-full flex flex-col items-start md:pb-[32px] relative">
       <DarkHeader onClose={onClose} />
-      <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start justify-between -mb-[32px] shrink-0 relative bg-bg-main" style={{ height: 574 }}>
+      <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start justify-between -mb-[32px] relative bg-bg-main flex-1 md:flex-none md:h-[574px] min-h-0 overflow-y-auto">
         {/* Top: tags + messages */}
         <div className="flex flex-col gap-[24px] items-start w-full shrink-0 relative">
           <TagsRow />
@@ -361,14 +361,16 @@ export function ChatbotWidget(): React.ReactElement {
         />
       )}
       <aside
-        className={`fixed z-30 pointer-events-none bottom-[24px] left-[24px] md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))] ${
-          !showChat ? 'hidden md:block' : ''
+        className={`fixed z-30 pointer-events-none ${
+          showChat
+            ? 'inset-0 md:inset-auto md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))]'
+            : 'bottom-[24px] left-[24px] md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))] hidden md:block'
         }`}
         aria-label="Quick answer AI"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
       >
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto h-full md:h-auto">
           {showChat && (
             <ChatbotChat
               state={state}
