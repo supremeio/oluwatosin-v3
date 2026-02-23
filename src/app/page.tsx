@@ -65,8 +65,8 @@ function WritingsSection(): React.ReactElement {
       <div className="flex flex-col gap-[16px] items-start w-full">
         {WRITINGS_ITEMS.map((item) => (
           <div key={item.title} className="group flex gap-[8px] items-center w-full">
-            <div className="flex gap-[4px] items-center shrink-0">
-              <LinkedText className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary">
+            <div className="flex gap-[4px] items-center min-w-0 md:shrink-0">
+              <LinkedText className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary truncate min-w-0">
                 {item.title}
               </LinkedText>
               <ArrowTopRightIcon />
@@ -119,7 +119,7 @@ function MyProcessSection(): React.ReactElement {
     <section className="flex flex-col gap-[8px] items-start">
       <div className="flex gap-[8px] items-center">
         <SectionLabel>MY PROCESS</SectionLabel>
-        <LinkedText className="font-figtree font-medium text-[13px] leading-[1.5] text-text-primary">
+        <LinkedText className="font-figtree font-medium text-[13px] leading-[1.5] text-text-primary whitespace-nowrap">
           What it means
         </LinkedText>
       </div>
@@ -129,7 +129,7 @@ function MyProcessSection(): React.ReactElement {
           alt="Non-linear design process: Understand, Define, Sketch, Wireframe, Design & Iteration, Test & Refine"
           fill
           className="object-contain"
-          sizes="580px"
+          sizes="(min-width: 768px) 580px, 100vw"
         />
       </div>
     </section>
@@ -138,8 +138,8 @@ function MyProcessSection(): React.ReactElement {
 
 export default function PortfolioPage(): React.ReactElement {
   const profileHeader = (
-    <div className="relative z-10 w-full max-w-[1512px] mx-auto px-[40px] pt-[40px]">
-      <div className="ml-[426px]">
+    <div className="relative z-10 w-full px-[24px] pt-[24px] md:max-w-[1512px] md:mx-auto md:px-[40px] md:pt-[40px]">
+      <div className="md:ml-[426px]">
         <ProfileHeader />
       </div>
     </div>

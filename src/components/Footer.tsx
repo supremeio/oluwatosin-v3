@@ -1,6 +1,6 @@
 export function Footer(): React.ReactElement {
   return (
-    <footer className="bg-bg-on-colour rounded-[32px] p-[24px] flex flex-col gap-[40px] items-start text-text-on-colour h-[154px] w-[580px]">
+    <footer className="bg-bg-on-colour rounded-[32px] p-[24px] flex flex-col gap-[40px] items-start text-text-on-colour w-full">
       <div className="font-figtree font-normal text-[12px] uppercase leading-[19.2px] opacity-0 shrink-0 w-full" aria-hidden>
         TOP MOVIES
       </div>

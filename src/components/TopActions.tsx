@@ -16,7 +16,7 @@ function MoonIcon(): React.ReactElement {
 
 export function TopActions(): React.ReactElement {
   return (
-    <div className="fixed top-[40px] right-[40px] z-10 flex gap-[8px] items-center">
+    <div className="absolute top-[24px] right-[24px] md:fixed md:top-[40px] md:right-[40px] z-10 flex gap-[8px] items-center">
       <IconButton label="Text size">
         <span className="font-figtree font-medium text-[14px] leading-[20px]">1x</span>
       </IconButton>

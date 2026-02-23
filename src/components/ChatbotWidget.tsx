@@ -122,7 +122,7 @@ function ChatbotDefault({ onExpand }: { onExpand: () => void }): React.ReactElem
 
 function ChatbotHover({ onStartChat, onClose }: { onStartChat: () => void; onClose: () => void }): React.ReactElement {
   return (
-    <div className="w-[375px] flex flex-col items-start pb-[32px] relative">
+    <div className="w-[calc(100vw-48px)] md:w-[375px] flex flex-col items-start pb-[32px] relative">
       <DarkHeader onClose={onClose} />
       {/* Second card: white bg (bg-main #FFF) */}
       <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start gap-[40px] self-stretch -mb-[32px] shrink-0 relative bg-bg-main">
@@ -174,9 +174,8 @@ function ChatbotChat({
   }, [input, onSendUserMessage]);
 
   return (
-    <div className="w-[354px] flex flex-col items-start pb-[32px] relative">
+    <div className="w-[calc(100vw-48px)] md:w-[354px] flex flex-col items-start pb-[32px] relative">
       <DarkHeader onClose={onClose} />
-      {/* Body: white bg (bg-main), same as hover */}
       <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start justify-between -mb-[32px] shrink-0 relative bg-bg-main" style={{ height: 574 }}>
         {/* Top: tags + messages */}
         <div className="flex flex-col gap-[24px] items-start w-full shrink-0 relative">
@@ -292,11 +291,11 @@ function ChatbotChat({
             tabIndex={0}
             onClick={onCloseMenu}
             onKeyDown={(e) => e.key === 'Escape' && onCloseMenu()}
-            className="absolute left-0 top-0 w-[354px] h-[714px] rounded-[32px] z-10 bg-overlay-local"
+            className="absolute inset-0 rounded-[32px] z-10 bg-overlay-local"
             aria-label="Close menu"
           />
           <div
-            className="absolute left-[35px] top-[160px] w-[287px] rounded-[16px] p-[16px] flex flex-col gap-[4px] z-20 backdrop-blur-[2px] bg-bg-secondary"
+            className="absolute left-[24px] right-[24px] md:left-[35px] md:right-auto md:w-[287px] top-[160px] rounded-[16px] p-[16px] flex flex-col gap-[4px] z-20 backdrop-blur-[2px] bg-bg-secondary"
             onClick={(e) => e.stopPropagation()}
           >
             {[POPULAR_QUESTION, ...POPULAR_OPTIONS].map((opt, i) => (
@@ -362,7 +361,9 @@ export function ChatbotWidget(): React.ReactElement {
         />
       )}
       <aside
-        className="fixed bottom-[40px] left-[40px] z-30 pointer-events-none"
+        className={`fixed z-30 pointer-events-none bottom-[24px] left-[24px] md:bottom-[40px] md:left-[40px] ${
+          !showChat ? 'hidden md:block' : ''
+        }`}
         aria-label="Quick answer AI"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}

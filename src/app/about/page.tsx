@@ -58,7 +58,7 @@ function BookIcon(): React.ReactElement {
 
 function PageHeader(): React.ReactElement {
   return (
-    <header className="flex gap-[40px] items-start w-[580px]">
+    <header className="flex gap-[40px] items-start w-full">
       <div className="flex flex-col gap-[4px] items-start w-[261px]">
         <h1 className="font-figtree font-semibold text-[20px] leading-[normal] text-text-primary">
           Design. Develop. Gym.{'\n'}Sleep. Repeat.
@@ -73,9 +73,9 @@ function PageHeader(): React.ReactElement {
 
 function EducationRow(): React.ReactElement {
   return (
-    <div className="group flex gap-[8px] items-center p-[12px] rounded-[12px] bg-bg-secondary w-[580px]">
+    <div className="group flex gap-[8px] items-center p-[12px] rounded-[12px] bg-bg-secondary w-full">
       <BookIcon />
-      <div className="flex flex-1 gap-[8px] items-center">
+      <div className="flex flex-1 min-w-0 gap-[8px] items-center flex-wrap md:flex-nowrap">
         <div className="flex gap-[8px] items-center shrink-0">
           <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px]">
             Master&apos;s in digital design
@@ -103,20 +103,20 @@ function EmptyStateImage(): React.ReactElement {
       alt="Empty state placeholder"
       width={580}
       height={256}
-      className="rounded-[24px]"
+      className="rounded-[24px] w-full h-auto"
     />
   );
 }
 
 function ExperienceRow({ experience }: { experience: Experience }): React.ReactElement {
   return (
-    <div className="group flex gap-[8px] items-center w-[580px]">
-      <div className="flex gap-[8px] items-center shrink-0">
-        <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px]">
+    <div className="group flex gap-[8px] items-center w-full">
+      <div className="flex gap-[8px] items-center min-w-0 md:shrink-0">
+        <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px] whitespace-nowrap">
           {experience.title}
         </span>
-        <div className="flex gap-[4px] items-center">
-          <span className="font-figtree font-medium text-[14px] leading-[24px] text-text-secondary opacity-80">
+        <div className="flex gap-[4px] items-center shrink-0">
+          <span className="font-figtree font-medium text-[14px] leading-[24px] text-text-secondary opacity-80 whitespace-nowrap">
             {experience.company}
           </span>
           <ArrowTopRightIcon />
@@ -145,11 +145,11 @@ function PastExperiencesSection(): React.ReactElement {
 
 function SocialLinksSection(): React.ReactElement {
   return (
-    <div className="flex gap-[24px] items-center">
+    <div className="flex flex-wrap gap-x-[24px] gap-y-[8px] items-center">
       <span className="font-figtree font-normal text-[15px] leading-[24px] text-text-primary">
         Find me on
       </span>
-      <div className="flex gap-[24px] items-center">
+      <div className="flex flex-wrap gap-x-[24px] gap-y-[8px] items-center">
         {SOCIAL_LINKS.map((link) => (
           <LinkedText
             key={link.name}

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Figtree, Sora, Kode_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -21,6 +21,12 @@ const kodeMono = Kode_Mono({
   display: 'swap',
   preload: false,
 });
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "Oluwatosin Kazeem — Product Designer Portfolio '26",

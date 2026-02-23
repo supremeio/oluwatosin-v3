@@ -27,10 +27,10 @@ export function FloatingNav(): React.ReactElement {
 
   return (
     <nav
-      className="fixed bottom-[40px] left-1/2 -translate-x-1/2 z-50"
+      className="fixed bottom-[24px] left-0 right-0 z-50 flex justify-center pointer-events-none"
       aria-label="Main navigation"
     >
-      <div className="relative flex gap-[2px] items-center rounded-[16px]">
+      <div className="relative flex gap-[2px] items-center rounded-[16px] pointer-events-auto">
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[299px] h-[40px] bg-bg-secondary rounded-[40px] z-[1]" />
 
         {NAV_ITEMS.map((item, i) => {

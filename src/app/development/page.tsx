@@ -78,7 +78,7 @@ function AgentLoaderIcon(): React.ReactElement {
 
 function PageHeader(): React.ReactElement {
   return (
-    <header className="flex flex-col gap-[40px] items-start w-[580px]">
+    <header className="flex flex-col gap-[40px] items-start w-full">
       <div className="flex items-start justify-between w-full">
         <div className="flex flex-col gap-[4px] items-start">
           <h1 className="font-figtree font-semibold text-[20px] leading-[24px] text-text-primary">
@@ -127,8 +127,8 @@ function ProjectsSection(): React.ReactElement {
 
 function LoadingDemoCard(): React.ReactElement {
   return (
-    <div className="relative w-[440px] h-[294px] rounded-[12px] bg-bg-secondary shrink-0">
-      <div className="absolute left-[78px] top-[69px] w-[285px] bg-white rounded-[8px] p-[24px] flex flex-col gap-[24px]">
+    <div className="relative w-full md:w-[440px] h-[294px] rounded-[12px] bg-bg-secondary shrink-0">
+      <div className="absolute left-1/2 -translate-x-1/2 md:left-[78px] md:translate-x-0 top-[69px] w-[285px] bg-white rounded-[8px] p-[24px] flex flex-col gap-[24px]">
         <div className="flex gap-[4px] items-center">
           <CheckIcon />
           <span className="font-figtree font-medium text-[14px] leading-[1.4] text-text-primary">
@@ -154,8 +154,8 @@ function LoadingDemoCard(): React.ReactElement {
 
 function UploadDemoCard(): React.ReactElement {
   return (
-    <div className="relative w-[440px] h-[294px] rounded-[12px] bg-bg-secondary shrink-0">
-      <div className="absolute left-[124px] top-[125px] flex gap-[4px] items-center justify-center px-[16px] py-[8px] rounded-[8px] bg-[#151619] w-[192px] h-[44px]">
+    <div className="relative w-full md:w-[440px] h-[294px] rounded-[12px] bg-bg-secondary shrink-0">
+      <div className="absolute left-1/2 -translate-x-1/2 md:left-[124px] md:translate-x-0 top-[125px] flex gap-[4px] items-center justify-center px-[16px] py-[8px] rounded-[8px] bg-[#151619] w-[192px] h-[44px]">
         <UploadIcon />
         <span className="font-figtree font-medium text-[14px] leading-[20px] text-[#8aa8ba]">
           Upload (.pdf, docs)
@@ -167,8 +167,8 @@ function UploadDemoCard(): React.ReactElement {
 
 function AgentRunningDemoCard(): React.ReactElement {
   return (
-    <div className="relative w-[440px] h-[294px] rounded-[12px] bg-bg-secondary shrink-0">
-      <div className="absolute left-[139px] top-[125px] flex gap-[4px] items-center justify-center px-[24px] py-[12px] rounded-[8px] bg-[#123520]">
+    <div className="relative w-full md:w-[440px] h-[294px] rounded-[12px] bg-bg-secondary shrink-0">
+      <div className="absolute left-1/2 -translate-x-1/2 md:left-[139px] md:translate-x-0 top-[125px] flex gap-[4px] items-center justify-center px-[24px] py-[12px] rounded-[8px] bg-[#123520]">
         <AgentLoaderIcon />
         <span className="font-figtree font-medium text-[14px] leading-[20px] text-[#48ba77]">
           Agent running
@@ -188,8 +188,8 @@ function MicroInteractionRow({
   const isSingleLine = interaction.lines.length === 1;
 
   return (
-    <div className="flex items-start w-full">
-      <div className="w-[140px] shrink-0">
+    <div className="flex flex-col md:flex-row items-start w-full gap-[16px] md:gap-0">
+      <div className="w-full md:w-[140px] shrink-0">
         <div className={`flex gap-[8px] ${isSingleLine ? 'items-center' : 'items-start'}`}>
           <LinkedText className="font-figtree font-normal text-[15px] leading-[24px] text-text-primary">
             {interaction.lines.map((line, i) => (

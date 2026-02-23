@@ -74,7 +74,7 @@ export function WorkSection(): React.ReactElement {
       </div>
 
       {hoveredItem && (
-        <div className="absolute left-full top-0 ml-[44px]">
+        <div className="absolute left-full top-0 ml-[44px] hidden md:block">
           <BentoGrid />
         </div>
       )}

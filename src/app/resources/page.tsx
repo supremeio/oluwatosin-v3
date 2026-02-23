@@ -41,7 +41,7 @@ function TipsIcon(): React.ReactElement {
 
 function PageHeader(): React.ReactElement {
   return (
-    <header className="flex items-start w-[580px]">
+    <header className="flex items-start w-full">
       <div className="flex flex-col gap-[4px] items-start w-[261px]">
         <h1 className="font-figtree font-semibold text-[20px] leading-[normal] text-text-primary">
           Tips &amp; resources
