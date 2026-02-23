@@ -8,9 +8,11 @@ interface PageLayoutProps {
   children: React.ReactNode;
   /** Content rendered before `<main>`, outside the centered column (e.g. home page header) */
   beforeMain?: React.ReactNode;
+  /** Hide the floating bottom navigation */
+  hideNav?: boolean;
 }
 
-export function PageLayout({ children, beforeMain }: PageLayoutProps): React.ReactElement {
+export function PageLayout({ children, beforeMain, hideNav }: PageLayoutProps): React.ReactElement {
   return (
     <div className="relative min-h-screen bg-bg-main overflow-x-hidden">
       {beforeMain}
@@ -25,7 +27,7 @@ export function PageLayout({ children, beforeMain }: PageLayoutProps): React.Rea
       </main>
 
       <ChatbotProvider>
-        <FloatingNav />
+        {!hideNav && <FloatingNav />}
         <ChatbotWidget />
       </ChatbotProvider>
     </div>

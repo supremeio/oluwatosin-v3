@@ -174,7 +174,7 @@ export const caseStudies: Record<string, CaseStudy> = {
     ],
   },
   autospend: {
-    title: 'CollectAfrica',
+    title: 'Autospend',
     metadata: [
       {
         label: 'Here are the project platforms',

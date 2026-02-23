@@ -16,6 +16,9 @@ const AI_GREETING = [
   'Got just 5 minutes? Ask me anything.',
 ];
 
+const FONT_SALT: React.CSSProperties = { fontFeatureSettings: "'salt' 1" };
+const FONT_LNUM_TNUM: React.CSSProperties = { fontFeatureSettings: "'salt' 1, 'lnum' 1, 'tnum' 1" };
+
 type ChatbotState = 'default' | 'chat' | 'menu' | 'replied';
 
 function CloseIcon(): React.ReactElement {
@@ -52,13 +55,13 @@ function DarkHeader({ onClose }: { onClose: () => void }): React.ReactElement {
         <div className="flex flex-col items-start w-full shrink-0 text-text-on-colour">
           <p
             className="font-figtree font-semibold text-[16px] leading-[24px] tracking-[0.16px] w-full"
-            style={{ fontFeatureSettings: "'salt' 1" }}
+            style={FONT_SALT}
           >
             Quick answer AI
           </p>
           <p
             className="font-figtree font-medium text-[14px] leading-[18px] tracking-[0.14px] opacity-80 w-full"
-            style={{ fontFeatureSettings: "'salt' 1, 'lnum' 1, 'tnum' 1" }}
+            style={FONT_LNUM_TNUM}
           >
             I have instant access to Oluwatosin&apos;s projects, skills, and experience.
           </p>
@@ -192,7 +195,7 @@ function ChatbotChat({
                   <div className="flex items-center justify-center p-[8px] rounded-tr-[20px] rounded-br-[20px] rounded-tl-[16px] w-full shrink-0 relative bg-bg-tertiary" style={{ height: 56 }}>
                     <p
                       className="flex-[1_0_0] font-figtree font-medium text-[14px] leading-[1.45] tracking-[0.14px] min-w-0 relative text-text-primary"
-                      style={{ fontFeatureSettings: "'salt' 1, 'lnum' 1, 'tnum' 1" }}
+                      style={FONT_LNUM_TNUM}
                     >
                       {AI_GREETING[0]}
                     </p>
@@ -201,7 +204,7 @@ function ChatbotChat({
                   <div className="flex items-center justify-center p-[8px] rounded-tr-[20px] rounded-br-[20px] w-full shrink-0 relative bg-bg-tertiary">
                     <p
                       className="flex-[1_0_0] font-figtree font-medium text-[14px] leading-[1.45] tracking-[0.14px] min-w-0 relative text-text-primary"
-                      style={{ fontFeatureSettings: "'salt' 1, 'lnum' 1, 'tnum' 1" }}
+                      style={FONT_LNUM_TNUM}
                     >
                       {AI_GREETING[1]}
                     </p>
@@ -210,7 +213,7 @@ function ChatbotChat({
                   <div className="flex flex-col gap-[10px] items-center justify-center p-[8px] rounded-tr-[20px] rounded-br-[20px] rounded-bl-[20px] w-full shrink-0 relative bg-bg-tertiary">
                     <p
                       className="font-figtree font-normal text-[12px] leading-[19.2px] uppercase w-full shrink-0 relative text-text-secondary"
-                      style={{ fontFeatureSettings: "'salt' 1" }}
+                      style={FONT_SALT}
                     >
                       Popular questions
                     </p>
@@ -221,7 +224,7 @@ function ChatbotChat({
                     >
                       <p
                         className="flex-[1_0_0] font-figtree font-medium text-[14px] leading-[1.45] tracking-[0.14px] min-w-0 relative text-text-primary"
-                        style={{ fontFeatureSettings: "'salt' 1, 'lnum' 1, 'tnum' 1" }}
+                        style={FONT_LNUM_TNUM}
                       >
                         {POPULAR_QUESTION}
                       </p>
@@ -242,7 +245,7 @@ function ChatbotChat({
                   <div className="flex-[1_0_0] flex flex-wrap items-center justify-center min-w-0 px-[16px] py-[8px] rounded-tl-[20px] rounded-bl-[20px] rounded-br-[20px] relative bg-bg-on-colour">
                     <p
                       className="flex-[1_0_0] font-figtree font-medium text-[14px] leading-[1.45] tracking-[0.14px] min-w-0 relative text-text-on-colour"
-                      style={{ fontFeatureSettings: "'salt' 1, 'lnum' 1, 'tnum' 1" }}
+                      style={FONT_LNUM_TNUM}
                     >
                       {POPULAR_QUESTION}
                     </p>
@@ -269,7 +272,7 @@ function ChatbotChat({
             placeholder="Ask about experience, projects, design systems, availability..."
             rows={2}
             className="flex-[1_0_0] min-w-0 font-figtree font-medium text-[14px] leading-[24px] text-text-primary placeholder:text-text-secondary bg-transparent border-none outline-none resize-none"
-            style={{ fontFeatureSettings: "'salt' 1" }}
+            style={FONT_SALT}
           />
           <div className="shrink-0 w-[40px] h-[40px] relative self-end">
             <button
@@ -309,7 +312,7 @@ function ChatbotChat({
                 className={`w-full text-left font-figtree font-medium text-[14px] leading-[1.45] tracking-[0.14px] p-[8px] rounded-[8px] ${
                   i === 1 ? 'bg-bg-main text-text-primary' : 'bg-bg-secondary text-text-secondary'
                 }`}
-                style={{ fontFeatureSettings: "'salt' 1, 'lnum' 1, 'tnum' 1" }}
+                style={FONT_LNUM_TNUM}
               >
                 {opt}
               </button>
@@ -357,15 +360,15 @@ export function ChatbotWidget(): React.ReactElement {
     <>
       {(showExpanded || showChat) && (
         <div
-          className="fixed inset-0 z-20 bg-overlay-page"
+          className="fixed inset-0 z-20 bg-overlay-page hidden min-[1372px]:block"
           aria-hidden
         />
       )}
       <aside
         className={`fixed z-30 pointer-events-none ${
           showChat
-            ? 'top-[48px] bottom-[24px] left-[24px] right-[24px] md:inset-auto md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))]'
-            : 'bottom-[24px] left-[24px] md:bottom-[40px] md:left-[16px] md:w-[min(440px,calc(50vw_-_346px))] hidden md:block'
+            ? 'top-[48px] bottom-[24px] left-[24px] right-[24px] md:inset-auto md:hidden min-[1372px]:block min-[1372px]:inset-auto min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
+            : 'hidden min-[1372px]:block min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
         }`}
         aria-label="Quick answer AI"
         onMouseEnter={() => setIsHovering(true)}

@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export function Footer(): React.ReactElement {
   return (
     <footer className="bg-bg-on-colour rounded-[32px] p-[24px] flex flex-col gap-[40px] items-start text-text-on-colour w-full">
@@ -10,7 +12,7 @@ export function Footer(): React.ReactElement {
         </p>
         <div className="flex items-center justify-between w-full text-[14px]">
           <p className="font-figtree font-semibold">&copy;2026 Oluwatosin Kazeem</p>
-          <p className="font-figtree font-medium">Colophon</p>
+          <Link href="/colophon" className="font-figtree font-medium">Colophon</Link>
         </div>
       </div>
     </footer>

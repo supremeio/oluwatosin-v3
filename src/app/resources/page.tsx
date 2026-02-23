@@ -234,10 +234,6 @@ export default function ResourcesPage(): React.ReactElement {
           name="Amelie Schlueter"
           href="https://www.amelieschlueter.com/"
         />
-        <DesignInspirationSection
-          name="Amelie Schlueter"
-          href="https://www.amelieschlueter.com/"
-        />
       </div>
     </PageLayout>
   );

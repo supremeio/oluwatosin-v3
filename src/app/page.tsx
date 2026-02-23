@@ -105,7 +105,7 @@ function MyProcessSection(): React.ReactElement {
           What it means
         </LinkedText>
       </div>
-      <div className="relative w-full" style={{ aspectRatio: '620 / 223' }}>
+      <div className="relative w-full aspect-[620/223]">
         <Image
           src="/my process - light.svg"
           alt="Non-linear design process: Understand, Define, Sketch, Wireframe, Design & Iteration, Test & Refine"
@@ -120,10 +120,8 @@ function MyProcessSection(): React.ReactElement {
 
 export default function PortfolioPage(): React.ReactElement {
   const profileHeader = (
-    <div className="relative z-10 w-full px-[24px] pt-[24px] md:max-w-[1512px] md:mx-auto md:px-[40px] md:pt-[40px]">
-      <div className="md:ml-[426px]">
-        <ProfileHeader />
-      </div>
+    <div className="relative z-10 w-full px-[24px] pt-[24px] md:w-[580px] md:px-0 md:mx-auto md:pt-[40px]">
+      <ProfileHeader />
     </div>
   );
 
