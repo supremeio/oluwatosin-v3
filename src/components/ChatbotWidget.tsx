@@ -349,7 +349,10 @@ export function ChatbotWidget(): React.ReactElement {
     }
   }, [showChat, openChat, closeChat]);
 
-  const handleClose = useCallback(() => setState('default'), []);
+  const handleClose = useCallback(() => {
+    setState('default');
+    setIsHovering(false);
+  }, []);
   const handleStartChat = useCallback(() => setState('chat'), []);
   const handleOpenMenu = useCallback(() => setState('menu'), []);
   const handleCloseMenu = useCallback(() => setState('chat'), []);
