@@ -21,7 +21,7 @@ const ROUTE_TO_LABEL: Record<string, string> = {
 };
 
 export function FloatingNav(): React.ReactElement {
-  const { isChatOpen, toggleChat } = useChatbotContext();
+  const { isChatOpen, toggleChat, closeChat } = useChatbotContext();
   const pathname = usePathname();
   const currentPageLabel = ROUTE_TO_LABEL[pathname] ?? 'Home';
 
@@ -51,6 +51,7 @@ export function FloatingNav(): React.ReactElement {
               {hasRoute ? (
                 <Link
                   href={item.href}
+                  onClick={closeChat}
                   className={`flex items-center justify-center p-[16px] rounded-[40px] ${
                     isActive ? 'bg-bg-on-colour' : 'bg-bg-main'
                   }`}
