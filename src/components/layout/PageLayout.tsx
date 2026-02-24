@@ -3,7 +3,7 @@ import { FloatingNav } from '@/components/FloatingNav';
 import { ChatbotProvider } from '@/providers/ChatbotProvider';
 import { TopActions } from '@/components/TopActions';
 import { Footer } from '@/components/Footer';
-import { InteractiveDotBackground } from '@/components/ui/InteractiveDotBackground';
+import { CanvasParticleBackground } from '@/components/ui/CanvasParticleBackground';
 
 interface PageLayoutProps {
   children: React.ReactNode;
@@ -16,7 +16,7 @@ interface PageLayoutProps {
 export function PageLayout({ children, beforeMain, hideNav }: PageLayoutProps): React.ReactElement {
   return (
     <div className="relative min-h-screen bg-bg-main overflow-x-hidden">
-      <InteractiveDotBackground />
+      <CanvasParticleBackground />
       {beforeMain}
       <TopActions />
 

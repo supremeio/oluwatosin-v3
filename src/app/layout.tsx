@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Figtree, Sora, Kode_Mono } from 'next/font/google';
 import Script from 'next/script';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { BackgroundProvider } from '@/providers/BackgroundProvider';
 import './globals.css';
 
 const figtree = Figtree({
@@ -53,7 +54,11 @@ export default function RootLayout({
             __html: `try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
           }}
         />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <BackgroundProvider>
+            {children}
+          </BackgroundProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
