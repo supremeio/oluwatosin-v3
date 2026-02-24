@@ -1,13 +1,19 @@
-import Image from 'next/image';
-
 export function ArrowTopRightIcon(): React.ReactElement {
   return (
-    <Image
-      src="/Arrow icon.svg"
-      alt=""
-      width={16}
-      height={16}
-      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-    />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden
+      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-[var(--icon-active)]"
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 3.5C12.2761 3.5 12.5 3.72386 12.5 4V10.4004C12.4997 10.6764 12.276 10.9004 12 10.9004C11.7239 10.9004 11.5002 10.6764 11.5 10.4004V5.20703L4.35347 12.3535C4.15821 12.5488 3.84171 12.5488 3.64644 12.3535C3.45119 12.1583 3.45118 11.8417 3.64644 11.6465L10.7929 4.5H5.59957C5.3236 4.4998 5.09957 4.27602 5.09957 4C5.09957 3.72399 5.3236 3.5002 5.59957 3.5H12Z"
+        fill="currentColor"
+      />
+    </svg>
   );
 }

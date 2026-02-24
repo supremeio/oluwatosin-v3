@@ -1,51 +1,15 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { LinkedText } from '@/components/ui/LinkedText';
-
-const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 interface WorkItem {
   name: string;
   years: string;
   slug?: string;
-}
-
-function BentoCard({ className }: { className?: string }): React.ReactElement {
-  return (
-    <div className={`relative rounded-[20px] border border-border-primary overflow-hidden ${className ?? ''}`}>
-      <Image
-        src="/Empty state image.svg"
-        alt=""
-        fill
-        className="object-cover"
-      />
-    </div>
-  );
-}
-
-function BentoGrid(): React.ReactElement {
-  return (
-    <div className="w-[378px] flex flex-col gap-[4px] items-start">
-      <div className="flex gap-[4px] w-full h-[183px]">
-        <BentoCard className="flex-[1_0_0] h-full" />
-        <BentoCard className="flex-[1_0_0] h-full" />
-      </div>
-      <div className="flex gap-[4px] w-full">
-        <BentoCard className="w-[252px] h-[256px] shrink-0" />
-        <BentoCard className="flex-[1_0_0] h-[256px]" />
-      </div>
-      <div className="flex gap-[4px] w-full">
-        <BentoCard className="flex-[1_0_0] h-[256px]" />
-        <BentoCard className="w-[252px] h-[256px] shrink-0" />
-      </div>
-    </div>
-  );
 }
 
 const WORK_ITEMS: WorkItem[] = [
@@ -57,7 +21,6 @@ const WORK_ITEMS: WorkItem[] = [
   { name: 'Sandbox', years: '2021-2023' },
   { name: 'SendpackAfrica', years: '2021-2023', slug: 'sendpackafrica' },
 ];
-
 
 export function WorkSection(): React.ReactElement {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -71,10 +34,12 @@ export function WorkSection(): React.ReactElement {
   }, []);
 
   return (
-    <section className="flex flex-col gap-[16px] items-start relative">
+    <section className="flex flex-col gap-[16px] items-start">
       <SectionLabel>Work</SectionLabel>
-      <div className="flex flex-col gap-[16px] items-start w-full">
+      <div className="flex flex-col items-start w-full">
         {WORK_ITEMS.map((item) => {
+          const dimmed = hoveredItem !== null && hoveredItem !== item.name;
+
           const rowContent = (
             <>
               <LinkedText className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary shrink-0">
@@ -87,12 +52,18 @@ export function WorkSection(): React.ReactElement {
             </>
           );
 
+          const rowStyle = {
+            opacity: dimmed ? 0.4 : 1,
+            transition: 'opacity 0.15s ease',
+          };
+
           if (item.slug) {
             return (
               <Link
                 key={item.name}
                 href={`/case-study/${item.slug}`}
-                className="flex gap-[8px] items-center w-full"
+                className="flex gap-[8px] items-center w-full py-[8px]"
+                style={rowStyle}
                 onMouseEnter={() => handleMouseEnter(item.name)}
                 onMouseLeave={handleMouseLeave}
               >
@@ -104,7 +75,8 @@ export function WorkSection(): React.ReactElement {
           return (
             <div
               key={item.name}
-              className="flex gap-[8px] items-center w-full"
+              className="flex gap-[8px] items-center w-full py-[8px]"
+              style={rowStyle}
               onMouseEnter={() => handleMouseEnter(item.name)}
               onMouseLeave={handleMouseLeave}
             >
@@ -113,21 +85,6 @@ export function WorkSection(): React.ReactElement {
           );
         })}
       </div>
-
-      <AnimatePresence>
-        {hoveredItem && (
-          <motion.div
-            key="bento-preview"
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.25, ease: EASE_OUT }}
-            className="absolute left-full top-0 ml-[44px] hidden md:block"
-          >
-            <BentoGrid />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </section>
   );
 }

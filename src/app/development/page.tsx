@@ -1,12 +1,16 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { LinkedText } from '@/components/ui/LinkedText';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
 import { ScrambleText } from '@/components/ui/ScrambleText';
-import { useBackground } from '@/providers/BackgroundProvider';
+
+export const metadata: Metadata = {
+  title: 'Code meets design — Design Engineering Lab',
+  description:
+    'An experimental playground where I build production-ready UI components, micro-interactions, and interface experiments. All open-source, copy-paste ready, built with modern tech.',
+};
 
 const PROJECTS = [
   { name: 'Get tech events in Europe', year: '2025' },
@@ -48,15 +52,9 @@ function ExternalLinkIndicator(): React.ReactElement {
 
 
 function PageHeader(): React.ReactElement {
-  const { setHoverState } = useBackground();
-
   return (
     <header className="flex flex-col gap-[40px] items-start w-full">
-      <div
-        className="flex flex-col gap-[8px] items-start w-full group cursor-default"
-        onMouseEnter={() => setHoverState('developer')}
-        onMouseLeave={() => setHoverState('default')}
-      >
+      <div className="flex flex-col gap-[8px] items-start w-full">
         <div className="flex flex-col gap-[4px] items-start">
           <h1 className="font-figtree font-semibold text-[20px] leading-[24px] text-text-primary">
             <ScrambleText text="Code meets design" />
@@ -85,9 +83,9 @@ function ProjectsSection(): React.ReactElement {
   return (
     <section className="flex flex-col gap-[16px] items-start w-full">
       <SectionLabel>Projects</SectionLabel>
-      <div className="flex flex-col gap-[16px] items-start w-full">
+      <div className="flex flex-col items-start w-full group/projects">
         {PROJECTS.map((project) => (
-          <div key={project.name} className="flex gap-[8px] items-center w-full">
+          <div key={project.name} className="flex gap-[8px] items-center w-full py-[8px] group-hover/projects:opacity-40 hover:!opacity-100 transition-opacity duration-150">
             <LinkedText className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary shrink-0">
               {project.name}
             </LinkedText>

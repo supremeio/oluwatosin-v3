@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { Figtree, Sora, Kode_Mono } from 'next/font/google';
 import Script from 'next/script';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import { BackgroundProvider } from '@/providers/BackgroundProvider';
 import './globals.css';
 
 const figtree = Figtree({
@@ -55,9 +54,7 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider>
-          <BackgroundProvider>
-            {children}
-          </BackgroundProvider>
+          {children}
         </ThemeProvider>
       </body>
     </html>

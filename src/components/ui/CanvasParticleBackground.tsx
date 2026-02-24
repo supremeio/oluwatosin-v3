@@ -1,415 +1,886 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { useBackground, HoverState } from '@/providers/BackgroundProvider';
+import { useEffect, useRef, useState } from 'react';
 
-// --- Particle Configuration ---
-const DOT_SIZE = 1.25;
-const DOT_RADIUS = DOT_SIZE / 2;
-const POISSON_RADIUS = 20;
-const DOT_COLOR = '#202124';
+// ─── Configuration ─────────────────────────────────────────────────────────────
+const POISSON_R     = 20;
 
-const SPRING_STIFFNESS = 0.15;
-const SPRING_DAMPING = 0.70;
+const DOT_R         = 0.75;   // Ambient: 1.5 px diameter
+const SHAPE_DOT_R   = 1.0;    // Shape mode: 2 px diameter
 
-const AMBIENT_DRIFT_SPEED = 0.001;
-const AMBIENT_DRIFT_AMP = 1.5; // Max 1-2px displacement
+// Resting physics — soft spring so particles feel like they float
+const REST_K        = 0.038;
+const REST_DAMP     = 0.86;
 
-const CURSOR_RADIUS = 150;
-const CURSOR_REPEL_AMP = 20; // Slight push for the "halo"
+// Shape-forming physics — elastic pull
+const SHAPE_K       = 0.072;
+const SHAPE_DAMP    = 0.81;
+const SPRING_RAMP   = 500;    // ms — ease-in window: REST_K → SHAPE_K
 
+// Ambient drift — dual-frequency Lissajous gives each particle a slow,
+// organic looping path that's clearly visible but never distracting
+const DRIFT_FREQ    = 0.00068;  // ~1.5× faster than before
+const DRIFT_AMP     = 3.8;
+const DRIFT_FREQ2   = 0.00028;
+const DRIFT_AMP2    = 1.6;
+
+// Cursor interaction — cubic ease-out for smoother halo edge
+const REPEL_R       = 190;
+const REPEL_MAX     = 32;
+const SPEED_SCALE   = 0.055;
+const MAX_CV_SPEED  = 5;
+const SPEED_DECAY   = 0.88;
+
+// Layout
+const CONTENT_W     = 580;
+const COL_GAP       = 20;
+
+// Emoji scan steps — three density tiers
+const SCAN_STEP      = 11;
+const FILL_SCAN_STEP = 38;
+const SLOW_SCAN_STEP = 12;
+
+// Formation stagger windows (ms)
+const OUTLINE_SPREAD = 1200;
+const FILL_OFFSET    = 300;
+const FILL_SPREAD    = 1900;
+const SLOW_START     = FILL_OFFSET + FILL_SPREAD;
+const SLOW_DURATION  = 27800;
+
+const TEXT_APPEAR_AT = OUTLINE_SPREAD;
+
+// Vertical centre of both shapes (fraction of viewport height)
+const SHAPE_CY      = 0.46;
+
+// Zone trigger thresholds (cursor x / W)
+const ZONE_L_MAX    = 0.36;
+const ZONE_R_MIN    = 0.64;
+
+const LS_KEY = 'portfolio-emoji';
+
+type Zone = 'dev' | 'org' | null;
+
+// ─── Emoji pool ────────────────────────────────────────────────────────────────
+const EMOJIS = [
+  '⭐', '🌙', '❤️', '🔥', '💎',
+  '🎯', '🦋', '🌊', '🌸', '⚡',
+  '🍀', '🎭', '🐬', '🌈', '🦊',
+];
+
+// ─── Coloured stipple point ────────────────────────────────────────────────────
+type Pt = { x: number; y: number; r: number; g: number; b: number };
+
+// ─── Cached emoji data ─────────────────────────────────────────────────────────
+interface EmojiPts {
+  outline: Pt[];
+  fill:    Pt[];
+  slow:    Pt[];
+  topY:    number;  // min y of outline pts (negative — above centre)
+  bottomY: number;  // max y
+  minX:    number;  // min x
+  maxX:    number;  // max x
+}
+
+// ─── Zone info (passed from canvas → React for overlay positioning) ────────────
+interface ZoneInfo {
+  zone:    NonNullable<Zone>;
+  cx:      number;   // screen x of shape centre
+  cy:      number;   // screen y of shape centre
+  topY:    number;   // emoji top offset (topY < 0)
+  bottomY: number;
+  minX:    number;
+  maxX:    number;
+  emoji:   string;
+}
+
+// ─── Emoji → coloured stipple points (synchronous canvas render) ──────────────
+function emojiToPoints(emoji: string, step: number): Pt[] {
+  const SIZE = 400;
+  const oc   = document.createElement('canvas');
+  oc.width   = SIZE;
+  oc.height  = SIZE;
+  const ox   = oc.getContext('2d', { willReadFrequently: true });
+  if (!ox) return [];
+
+  ox.font         = '260px serif';
+  ox.textAlign    = 'center';
+  ox.textBaseline = 'middle';
+  ox.fillText(emoji, SIZE / 2, SIZE / 2);
+
+  const data = ox.getImageData(0, 0, SIZE, SIZE).data;
+  const half = SIZE / 2;
+  const out: Pt[] = [];
+
+  for (let y = 0; y < SIZE; y += step) {
+    for (let x = 0; x < SIZE; x += step) {
+      const i = (y * SIZE + x) * 4;
+      if (data[i + 3] > 30) {
+        out.push({ x: x - half, y: y - half, r: data[i], g: data[i + 1], b: data[i + 2] });
+      }
+    }
+  }
+  return out;
+}
+
+// ─── Poisson-disc sampling ─────────────────────────────────────────────────────
+function poissonDisc(w: number, h: number, r: number): { x: number; y: number }[] {
+  const k    = 30;
+  const cell = r / Math.SQRT2;
+  const cols = Math.ceil(w / cell);
+  const rows = Math.ceil(h / cell);
+  const grid: ({ x: number; y: number } | null)[] = new Array(cols * rows).fill(null);
+  const pts:  { x: number; y: number }[] = [];
+  const active: { x: number; y: number }[] = [];
+
+  function insert(p: { x: number; y: number }) {
+    pts.push(p); active.push(p);
+    grid[Math.floor(p.y / cell) * cols + Math.floor(p.x / cell)] = p;
+  }
+
+  function valid(p: { x: number; y: number }): boolean {
+    if (p.x < 0 || p.x >= w || p.y < 0 || p.y >= h) return false;
+    const c  = Math.floor(p.x / cell);
+    const rr = Math.floor(p.y / cell);
+    for (let dr = -2; dr <= 2; dr++) {
+      for (let dc = -2; dc <= 2; dc++) {
+        const nr = Math.max(0, Math.min(rows - 1, rr + dr));
+        const nc = Math.max(0, Math.min(cols - 1, c  + dc));
+        const nb = grid[nr * cols + nc];
+        if (nb) {
+          const dx = nb.x - p.x, dy = nb.y - p.y;
+          if (dx * dx + dy * dy < r * r) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  insert({ x: Math.random() * w, y: Math.random() * h });
+
+  while (active.length > 0) {
+    const i   = (Math.random() * active.length) | 0;
+    const src = active[i];
+    let found = false;
+    for (let j = 0; j < k; j++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = r + Math.random() * r;
+      const s = { x: src.x + Math.cos(a) * d, y: src.y + Math.sin(a) * d };
+      if (valid(s)) { insert(s); found = true; break; }
+    }
+    if (!found) active.splice(i, 1);
+  }
+  return pts;
+}
+
+// ─── Particle ──────────────────────────────────────────────────────────────────
 class Particle {
-    x: number;
-    y: number;
-    originX: number;
-    originY: number;
+  x:  number; y:  number;
+  ox: number; oy: number;
+  vx = 0;     vy = 0;
+  sx: number; sy: number;
+  sx2: number; sy2: number;
+  zone: Zone = null;
+  tx = 0; ty = 0;
+  tr = 0; tg = 0; tb = 0;
+  startOffset = 0;
 
-    assignedPath: 'developer' | 'organization' | null = null;
-    targetX: number = 0;
-    targetY: number = 0;
+  constructor(x: number, y: number) {
+    this.x = this.ox = x;
+    this.y = this.oy = y;
+    this.sx  = Math.random() * Math.PI * 2;
+    this.sy  = Math.random() * Math.PI * 2;
+    this.sx2 = Math.random() * Math.PI * 2;
+    this.sy2 = Math.random() * Math.PI * 2;
+  }
 
-    vx: number = 0;
-    vy: number = 0;
+  update(
+    t: number,
+    zoneActivatedAtMap: Partial<Record<NonNullable<Zone>, number>>,
+    mx: number, my: number,
+    cvSpeed: number,
+    now: number,
+  ) {
+    let inShape = false;
+    let eased   = 0;
 
-    driftSeedX: number;
-    driftSeedY: number;
-
-    constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
-        this.originX = x;
-        this.originY = y;
-        this.driftSeedX = Math.random() * Math.PI * 2;
-        this.driftSeedY = Math.random() * Math.PI * 2;
-    }
-
-    update(time: number, isHoveringState: HoverState, mouseX: number, mouseY: number) {
-        let destX: number;
-        let destY: number;
-
-        // Check if we are forming our assigned shape in an Active Zone
-        if (isHoveringState !== 'default' && this.assignedPath === isHoveringState) {
-            destX = this.targetX;
-            destY = this.targetY;
-        } else {
-            // Resting State: Subtle, constrained microscopic drift (Micro-Oscillation)
-            destX = this.originX + Math.sin(time * AMBIENT_DRIFT_SPEED + this.driftSeedX) * AMBIENT_DRIFT_AMP;
-            destY = this.originY + Math.cos(time * AMBIENT_DRIFT_SPEED + this.driftSeedY) * AMBIENT_DRIFT_AMP;
-
-            // Cursor Interaction: Localized magnetic radius (Repel effect)
-            if (mouseX > -1 && mouseY > -1) {
-                const dx = this.x - mouseX;
-                const dy = this.y - mouseY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < CURSOR_RADIUS && dist > 0) {
-                    const force = (CURSOR_RADIUS - dist) / CURSOR_RADIUS; // 0 to 1
-                    destX += (dx / dist) * force * CURSOR_REPEL_AMP;
-                    destY += (dy / dist) * force * CURSOR_REPEL_AMP;
-                }
-            }
+    if (this.zone !== null) {
+      const at = zoneActivatedAtMap[this.zone];
+      if (at !== undefined) {
+        const zoneAge = now - at;
+        if (zoneAge >= this.startOffset) {
+          inShape      = true;
+          const age    = zoneAge - this.startOffset;
+          const ramp   = Math.min(age / SPRING_RAMP, 1);
+          eased        = ramp * ramp;
         }
-
-        // Tight dampened spring physics (F = -kx) for snappy, fluid resets and formations
-        const dx = destX - this.x;
-        const dy = destY - this.y;
-
-        this.vx += dx * SPRING_STIFFNESS;
-        this.vy += dy * SPRING_STIFFNESS;
-        this.vx *= SPRING_DAMPING;
-        this.vy *= SPRING_DAMPING;
-
-        this.x += this.vx;
-        this.y += this.vy;
+      }
     }
 
-    draw(ctx: CanvasRenderingContext2D) {
-        // Translate slightly to snap to pixel grid, keeping the 1px-1.5px dots perfectly crisp
-        ctx.moveTo(this.x, this.y);
-        ctx.arc(this.x, this.y, DOT_RADIUS, 0, Math.PI * 2);
+    let gx: number, gy: number, k: number, damp: number;
+
+    if (inShape) {
+      gx   = this.tx; gy   = this.ty;
+      k    = REST_K    + (SHAPE_K    - REST_K)    * eased;
+      damp = REST_DAMP + (SHAPE_DAMP - REST_DAMP) * eased;
+    } else {
+      gx = this.ox
+        + Math.sin(t * DRIFT_FREQ  + this.sx)  * DRIFT_AMP
+        + Math.sin(t * DRIFT_FREQ2 + this.sx2) * DRIFT_AMP2;
+      gy = this.oy
+        + Math.cos(t * DRIFT_FREQ  + this.sy)  * DRIFT_AMP
+        + Math.cos(t * DRIFT_FREQ2 + this.sy2) * DRIFT_AMP2;
+
+      if (mx >= 0) {
+        const dx = this.x - mx, dy = this.y - my;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < REPEL_R * REPEL_R && d2 > 0) {
+          const d  = Math.sqrt(d2);
+          const nt = 1 - d / REPEL_R;
+          const f  = nt * nt * nt * REPEL_MAX * (1 + cvSpeed * SPEED_SCALE);
+          gx += (dx / d) * f;
+          gy += (dy / d) * f;
+        }
+      }
+
+      k = REST_K; damp = REST_DAMP;
     }
+
+    this.vx = (this.vx + (gx - this.x) * k) * damp;
+    this.vy = (this.vy + (gy - this.y) * k) * damp;
+    this.x += this.vx;
+    this.y += this.vy;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, r: number) {
+    ctx.moveTo(this.x + r, this.y);
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+  }
 }
 
-// O(N) Bridson's Poisson-Disc Sampling Algorithm for perfectly organic, even stippled spacing
-function generatePoissonDisc(width: number, height: number, radius: number): { x: number, y: number }[] {
-    const k = 30; // Limit of samples to choose before rejection
-    const cellSize = radius / Math.SQRT2;
+// ─── assignZone ────────────────────────────────────────────────────────────────
+function assignZone(
+  particles: Particle[],
+  targets:   Pt[],
+  cx: number, cy: number,
+  zone: Zone,
+  offsetMin: number, offsetMax: number,
+) {
+  const sorted = [...targets].sort(
+    (a, b) => (a.x * a.x + a.y * a.y) - (b.x * b.x + b.y * b.y)
+  );
+  const n = sorted.length;
 
-    const gridWidth = Math.ceil(width / cellSize);
-    const gridHeight = Math.ceil(height / cellSize);
-    const grid: ({ x: number, y: number } | null)[] = new Array(gridWidth * gridHeight).fill(null);
+  for (let i = 0; i < n; i++) {
+    const t  = sorted[i];
+    const gx = cx + t.x, gy = cy + t.y;
+    let best: Particle | null = null, bestD = Infinity;
 
-    const points: { x: number, y: number }[] = [];
-    const activeList: { x: number, y: number }[] = [];
-
-    const insertPoint = (pt: { x: number, y: number }) => {
-        points.push(pt);
-        activeList.push(pt);
-        const col = Math.floor(pt.x / cellSize);
-        const row = Math.floor(pt.y / cellSize);
-        grid[row * gridWidth + col] = pt;
-    };
-
-    const isValid = (pt: { x: number, y: number }) => {
-        if (pt.x < 0 || pt.x >= width || pt.y < 0 || pt.y >= height) return false;
-        const col = Math.floor(pt.x / cellSize);
-        const row = Math.floor(pt.y / cellSize);
-
-        // Check neighboring cells
-        const cw = Math.max(0, col - 2);
-        const ce = Math.min(gridWidth - 1, col + 2);
-        const rn = Math.max(0, row - 2);
-        const rs = Math.min(gridHeight - 1, row + 2);
-
-        for (let r = rn; r <= rs; r++) {
-            for (let c = cw; c <= ce; c++) {
-                const neighbor = grid[r * gridWidth + c];
-                if (neighbor) {
-                    const dx = neighbor.x - pt.x;
-                    const dy = neighbor.y - pt.y;
-                    if (dx * dx + dy * dy < radius * radius) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    };
-
-    // Start randomly
-    insertPoint({ x: Math.random() * width, y: Math.random() * height });
-
-    while (activeList.length > 0) {
-        const activeIndex = Math.floor(Math.random() * activeList.length);
-        const pt = activeList[activeIndex];
-
-        let found = false;
-        for (let i = 0; i < k; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const rad = radius + Math.random() * radius; // distance between r and 2r
-            const sample = { x: pt.x + Math.cos(angle) * rad, y: pt.y + Math.sin(angle) * rad };
-
-            if (isValid(sample)) {
-                insertPoint(sample);
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            activeList.splice(activeIndex, 1);
-        }
+    for (const p of particles) {
+      if (p.zone !== null) continue;
+      const dx = p.ox - gx, dy = p.oy - gy;
+      const d  = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = p; }
     }
 
-    return points;
+    if (best) {
+      best.zone = zone; best.tx = gx; best.ty = gy;
+      best.tr = t.r; best.tg = t.g; best.tb = t.b;
+      best.startOffset =
+        offsetMin + (i / Math.max(n - 1, 1)) * (offsetMax - offsetMin) + Math.random() * 150;
+    }
+  }
 }
 
-// Generate localized coordinates (-halfSize to +halfSize) by scanning an SVG drawn to an offscreen canvas.
-async function getShapeCoordinates(svgString: string, DOMURL: typeof window.URL | null, pointDensity: number = 8): Promise<{ x: number, y: number }[]> {
-    return new Promise((resolve) => {
-        if (!DOMURL) return resolve([]);
+// ─── assignZoneWave ────────────────────────────────────────────────────────────
+function assignZoneWave(
+  particles: Particle[],
+  targets:   Pt[],
+  cx: number, cy: number,
+  zone: Zone,
+  xMin: number, xMax: number,
+  offsetMin: number, offsetMax: number,
+) {
+  if (!targets.length) return;
 
-        const img = new Image();
-        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const url = DOMURL.createObjectURL(svgBlob);
-
-        img.onerror = () => {
-            DOMURL.revokeObjectURL(url);
-            resolve([]);
-        };
-
-        img.onload = () => {
-            const oc = document.createElement('canvas');
-            const drawSize = 400; // Hardcoded scaling canvas to match the widescreen zones
-            oc.width = drawSize;
-            oc.height = drawSize;
-            const octx = oc.getContext('2d', { willReadFrequently: true });
-            if (!octx) {
-                DOMURL.revokeObjectURL(url);
-                return resolve([]);
-            }
-
-            // Draw SVG occupying the full draw size
-            octx.drawImage(img, 0, 0, drawSize, drawSize);
-
-            // Use raw Uint8ClampedArray for universal Endian-safe pixel checking
-            const imageData = octx.getImageData(0, 0, drawSize, drawSize).data;
-            const coords: { x: number, y: number }[] = [];
-            const halfSize = drawSize / 2;
-
-            // Scan image data at intervals matching desired stipple density
-            for (let y = 0; y < drawSize; y += pointDensity) {
-                for (let x = 0; x < drawSize; x += pointDensity) {
-                    const index = (y * drawSize + x) * 4;
-                    const alpha = imageData[index + 3]; // Check opacity channel
-                    if (alpha > 50) { // Threshold for actual stroke presence 
-                        coords.push({ x: x - halfSize, y: y - halfSize });
-                    }
-                }
-            }
-
-            DOMURL.revokeObjectURL(url);
-            resolve(coords);
-        };
-        img.src = url;
+  const available = particles
+    .filter(p => p.zone === null && p.ox >= xMin && p.ox <= xMax)
+    .sort((a, b) => {
+      const da = (a.ox - cx) ** 2 + (a.oy - cy) ** 2;
+      const db = (b.ox - cx) ** 2 + (b.oy - cy) ** 2;
+      return da - db;
     });
+
+  const n = available.length;
+  if (!n) return;
+
+  for (let i = 0; i < n; i++) {
+    const p = available[i];
+    let bestIdx = 0, bestDist = Infinity;
+
+    for (let j = 0; j < targets.length; j++) {
+      const t  = targets[j];
+      const dx = p.ox - (cx + t.x), dy = p.oy - (cy + t.y);
+      const d  = dx * dx + dy * dy;
+      if (d < bestDist) { bestDist = d; bestIdx = j; }
+    }
+
+    const t = targets[bestIdx];
+    p.zone = zone;
+    p.tx   = cx + t.x + (Math.random() * 3 - 1.5);
+    p.ty   = cy + t.y + (Math.random() * 3 - 1.5);
+    p.tr = t.r; p.tg = t.g; p.tb = t.b;
+    p.startOffset =
+      offsetMin + (i / Math.max(n - 1, 1)) * (offsetMax - offsetMin) + Math.random() * 800;
+  }
 }
 
-// Thick strokes and explicit dimensions guarantee the browser renders the Blob correctly.
-const DEV_BRACKETS_SVG = `<svg width="400" height="400" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <path d="M 35 15 Q 15 15 15 35 L 15 45 Q 15 50 5 50 Q 15 50 15 55 L 15 65 Q 15 85 35 85" stroke="black" stroke-width="8" stroke-linecap="round" fill="none"/>
-  <path d="M 65 15 Q 85 15 85 35 L 85 45 Q 85 50 95 50 Q 85 50 85 55 L 85 65 Q 85 85 65 85" stroke="black" stroke-width="8" stroke-linecap="round" fill="none"/>
-</svg>`;
+// ─── Component ────────────────────────────────────────────────────────────────
+export function CanvasParticleBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-const ORG_BUILDING_SVG = `<svg width="400" height="400" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="35" stroke="black" stroke-width="8" fill="none" stroke-dasharray="8 6"/>
-  <circle cx="50" cy="50" r="22" stroke="black" stroke-width="6" fill="none"/>
-  <circle cx="50" cy="50" r="8" stroke="black" stroke-width="6" fill="none"/>
-</svg>`;
+  // ── Canvas → React bridges (called from canvas loop, always latest fn) ──────
+  const onZoneActivateRef   = useRef<(info: ZoneInfo) => void>(() => {});
+  const onZoneDeactivateRef = useRef<(zone: NonNullable<Zone>) => void>(() => {});
+  const clearSavedZoneRef   = useRef<(zone: NonNullable<Zone>) => void>(() => {});
 
-export function CanvasParticleBackground(): React.ReactElement {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const { hoverState } = useBackground();
+  // ── Saved emoji state (localStorage) ─────────────────────────────────────
+  const savedEmojisRef = useRef<Partial<Record<NonNullable<Zone>, string>>>({});
 
-    const hoverStateRef = useRef<HoverState>(hoverState);
+  const [savedEmojis, setSavedEmojis] = useState<Partial<Record<NonNullable<Zone>, string>>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const parsed = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
+      const init   = (parsed ?? {}) as Partial<Record<NonNullable<Zone>, string>>;
+      savedEmojisRef.current = init;
+      return init;
+    } catch { return {}; }
+  });
+  // Keep ref in sync on every render
+  savedEmojisRef.current = savedEmojis;
 
-    // Safely sync React Context value to the animation loop ref
-    useEffect(() => {
-        hoverStateRef.current = hoverState;
-    }, [hoverState]);
+  // ── Which margin the cursor is currently in (null = content column or off-page)
+  const [cursorMargin, setCursorMargin] = useState<NonNullable<Zone> | null>(null);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const w  = window.innerWidth;
+      const cL = w / 2 - CONTENT_W / 2 - COL_GAP;
+      const cR = w / 2 + CONTENT_W / 2 + COL_GAP;
+      if (e.clientX < cL)       setCursorMargin('dev');
+      else if (e.clientX > cR)  setCursorMargin('org');
+      else                       setCursorMargin(null);
+    };
+    const onLeave = () => setCursorMargin(null);
+    window.addEventListener('mousemove',  onMove);
+    window.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('mousemove',  onMove);
+      window.removeEventListener('mouseleave', onLeave);
+    };
+  }, []);
 
-    const particlesRef = useRef<Particle[]>([]);
-    const animationRef = useRef<number>(0);
-    const mouseRef = useRef<{ x: number, y: number }>({ x: -1, y: -1 });
+  // ── Per-zone overlay state ─────────────────────────────────────────────────
+  type HoverMode = 'save' | 'saved';
+  const [zoneInfoMap,      setZoneInfoMap]      = useState<Partial<Record<NonNullable<Zone>, ZoneInfo>>>({});
+  const [buttonVisibleMap, setButtonVisibleMap] = useState<Partial<Record<NonNullable<Zone>, boolean>>>({});
+  const [hoverModeMap,     setHoverModeMap]     = useState<Partial<Record<NonNullable<Zone>, HoverMode>>>({});
 
-    const DOMURL = typeof window !== 'undefined' ? window.URL || window.webkitURL || window : null;
+  // Timers for delayed button appearance / auto-hide
+  const showTimersRef = useRef<Partial<Record<NonNullable<Zone>, ReturnType<typeof setTimeout>>>>({});
+  const hideTimersRef = useRef<Partial<Record<NonNullable<Zone>, ReturnType<typeof setTimeout>>>>({});
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || !DOMURL) return;
+  // Signals the canvas loop to re-activate a zone after Clear (if cursor still there)
+  const pendingReactivateRef = useRef<Zone>(null);
 
-        // Disable alpha for pure performance since we draw strictly solid #202124 lines with no overlays
-        const ctx = canvas.getContext('2d', { alpha: false });
-        if (!ctx) return;
+  // ── Callbacks (re-assigned every render, canvas reads via ref) ─────────────
+  onZoneActivateRef.current = (info: ZoneInfo) => {
+    setZoneInfoMap(prev => ({ ...prev, [info.zone]: info }));
+    const isSaved = !!savedEmojisRef.current[info.zone];
+    if (isSaved) {
+      // Saved zone re-entered — keep button hidden; hitbox handles hover-to-clear
+      setHoverModeMap(prev => ({ ...prev, [info.zone]: 'saved' }));
+      setButtonVisibleMap(prev => ({ ...prev, [info.zone]: false }));
+    } else {
+      setHoverModeMap(prev => ({ ...prev, [info.zone]: 'save' }));
+      setButtonVisibleMap(prev => ({ ...prev, [info.zone]: false }));
+      clearTimeout(showTimersRef.current[info.zone]);
+      const z = info.zone;
+      showTimersRef.current[z] = setTimeout(() => {
+        setButtonVisibleMap(prev => ({ ...prev, [z]: true }));
+      }, TEXT_APPEAR_AT);
+    }
+  };
 
-        const dpr = window.devicePixelRatio || 1;
-        let width = window.innerWidth;
-        let height = window.innerHeight;
+  onZoneDeactivateRef.current = (zone: NonNullable<Zone>) => {
+    clearTimeout(showTimersRef.current[zone]);
+    clearTimeout(hideTimersRef.current[zone]);
+    setZoneInfoMap(prev      => { const n = { ...prev };      delete n[zone]; return n; });
+    setButtonVisibleMap(prev => { const n = { ...prev };      delete n[zone]; return n; });
+    setHoverModeMap(prev     => { const n = { ...prev };      delete n[zone]; return n; });
+  };
 
-        let resizeTimeout: NodeJS.Timeout;
+  // ── Save / Clear handlers ──────────────────────────────────────────────────
+  const handleSave = (zone: NonNullable<Zone>) => {
+    const info = (zoneInfoMap as Record<string, ZoneInfo>)[zone];
+    if (!info) return;
+    const updated = { ...savedEmojisRef.current, [zone]: info.emoji };
+    savedEmojisRef.current = updated;
+    setSavedEmojis(updated);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch {}
 
-        const handleMouseMove = (e: MouseEvent) => {
-            mouseRef.current = { x: e.clientX, y: e.clientY };
-        };
+    // Show "Saved!" immediately, then auto-hide after 2 s
+    setHoverModeMap(prev => ({ ...prev, [zone]: 'saved' }));
+    setButtonVisibleMap(prev => ({ ...prev, [zone]: true }));
+    clearTimeout(hideTimersRef.current[zone]);
+    hideTimersRef.current[zone] = setTimeout(() => {
+      setButtonVisibleMap(prev => ({ ...prev, [zone]: false }));
+    }, 2000);
+  };
 
-        const handleMouseLeave = () => {
-            mouseRef.current = { x: -1, y: -1 };
-        };
+  const handleClear = (zone: NonNullable<Zone>) => {
+    const updated = { ...savedEmojisRef.current };
+    delete updated[zone];
+    savedEmojisRef.current = updated;
+    setSavedEmojis(updated);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch {}
+    clearSavedZoneRef.current(zone);
+    // React cleanup handled by clearSavedZoneRef calling onZoneDeactivateRef
+  };
 
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseleave', handleMouseLeave);
+  // ── Canvas effect ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-        const initGrid = async () => {
-            // 1. Generate distributed stippled field using Poisson-disc sampling
-            // Generate slightly beyond borders to ensure full coverage even with drift/repel
-            const points = generatePoissonDisc(width + 100, height + 100, POISSON_RADIUS);
-            const pArray: Particle[] = points.map(pt => new Particle(pt.x - 50, pt.y - 50));
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) return;
 
-            // INSTANTLY assign array so the resting field draws frame 1, zero lag.
-            particlesRef.current = pArray;
+    const dpr = window.devicePixelRatio || 1;
+    let W = window.innerWidth, H = window.innerHeight;
 
-            // 2. Parse paths to establish exact pixel coordinates for stipple morphing
-            try {
-                const devPoints = await getShapeCoordinates(DEV_BRACKETS_SVG, DOMURL, 12);
-                const orgPoints = await getShapeCoordinates(ORG_BUILDING_SVG, DOMURL, 12);
+    let colL = 0, colR = 0, leftCX = 0, rightCX = 0;
 
-                // 3. Spatially greedily assign closest particles to each SVG target sequentially
-                const isMobile = width < 768;
-                const devCenterX = isMobile ? width * 0.5 : width * 0.3;
-                const orgCenterX = isMobile ? width * 0.5 : width * 0.7;
-                const targetY = height * 0.5;
+    function updateGeometry() {
+      colL    = W / 2 - CONTENT_W / 2 - COL_GAP;
+      colR    = W / 2 + CONTENT_W / 2 + COL_GAP;
+      leftCX  = colL / 2;
+      rightCX = colR + (W - colR) / 2;
+    }
 
-                devPoints.forEach(pt => {
-                    let closest = null;
-                    let minDist = Infinity;
-                    const globalX = devCenterX + pt.x;
-                    const globalY = targetY + pt.y;
+    function sizeCanvas() {
+      W = window.innerWidth; H = window.innerHeight;
+      canvas!.width  = W * dpr; canvas!.height = H * dpr;
+      ctx!.scale(dpr, dpr);
+      canvas!.style.width  = `${W}px`;
+      canvas!.style.height = `${H}px`;
+      updateGeometry();
+    }
+    sizeCanvas();
 
-                    for (let i = 0; i < pArray.length; i++) {
-                        const p = pArray[i];
-                        if (p.assignedPath) continue;
+    // ── Pre-compute emoji caches ───────────────────────────────────────────
+    const emojiCache = new Map<string, EmojiPts>();
+    for (const emoji of EMOJIS) {
+      const outline = emojiToPoints(emoji, SCAN_STEP);
+      const xs = outline.map(p => p.x);
+      const ys = outline.map(p => p.y);
+      emojiCache.set(emoji, {
+        outline,
+        fill:    emojiToPoints(emoji, FILL_SCAN_STEP),
+        slow:    emojiToPoints(emoji, SLOW_SCAN_STEP),
+        topY:    outline.length ? Math.min(...ys) : -130,
+        bottomY: outline.length ? Math.max(...ys) :  130,
+        minX:    outline.length ? Math.min(...xs) : -130,
+        maxX:    outline.length ? Math.max(...xs) :  130,
+      });
+    }
 
-                        const dx = p.originX - globalX;
-                        const dy = p.originY - globalY;
-                        const dist = dx * dx + dy * dy;
-                        if (dist < minDist) {
-                            minDist = dist;
-                            closest = p;
-                        }
-                    }
-                    if (closest) {
-                        closest.assignedPath = 'developer';
-                        closest.targetX = globalX;
-                        closest.targetY = globalY;
-                    }
-                });
+    // ── Mouse / zone state ────────────────────────────────────────────────
+    let mx = -1, my = -1, activeZone: Zone = null, cvSpeed = 0, lastMt = 0;
 
-                orgPoints.forEach(pt => {
-                    let closest = null;
-                    let minDist = Infinity;
-                    const globalX = orgCenterX + pt.x;
-                    const globalY = targetY + pt.y;
+    function onMove(e: MouseEvent) {
+      const now = performance.now();
+      if (mx >= 0 && lastMt > 0) {
+        const dt = now - lastMt;
+        if (dt > 0) {
+          const vx = (e.clientX - mx) / dt, vy = (e.clientY - my) / dt;
+          cvSpeed = Math.min(Math.sqrt(vx * vx + vy * vy), MAX_CV_SPEED);
+        }
+      }
+      lastMt = now; mx = e.clientX; my = e.clientY;
+      if (W >= 768) {
+        const frac = mx / W;
+        activeZone = frac < ZONE_L_MAX ? 'dev' : frac > ZONE_R_MIN ? 'org' : null;
+      } else {
+        activeZone = null;
+      }
+    }
 
-                    for (let i = 0; i < pArray.length; i++) {
-                        const p = pArray[i];
-                        if (p.assignedPath) continue;
+    function onLeave() { mx = -1; my = -1; activeZone = null; cvSpeed = 0; lastMt = 0; }
 
-                        const dx = p.originX - globalX;
-                        const dy = p.originY - globalY;
-                        const dist = dx * dx + dy * dy;
-                        if (dist < minDist) {
-                            minDist = dist;
-                            closest = p;
-                        }
-                    }
-                    if (closest) {
-                        closest.assignedPath = 'organization';
-                        closest.targetX = globalX;
-                        closest.targetY = globalY;
-                    }
-                });
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseleave', onLeave);
 
-            } catch (err) {
-                console.error("SVG Mapping Error:", err);
+    // ── Particle field ────────────────────────────────────────────────────
+    let particles: Particle[] = poissonDisc(W + 100, H + 100, POISSON_R)
+      .map(p => new Particle(p.x - 50, p.y - 50));
+
+    // ── Zone state (canvas-side) ──────────────────────────────────────────
+    const zoneEmoji:         Partial<Record<NonNullable<Zone>, string>>   = {};
+    const zonePts:           Partial<Record<NonNullable<Zone>, EmojiPts>> = {};
+    const zoneActivatedAtMap: Partial<Record<NonNullable<Zone>, number>>  = {};
+
+    function activateZone(zone: NonNullable<Zone>, forceEmoji?: string) {
+      for (const p of particles) { if (p.zone === zone) p.zone = null; }
+
+      let emoji: string;
+      let pts:   EmojiPts | undefined;
+
+      if (forceEmoji) {
+        emoji = forceEmoji;
+        pts   = emojiCache.get(emoji);
+      } else {
+        emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+        pts   = emojiCache.get(emoji);
+        for (let i = 1; (!pts || !pts.outline.length) && i < EMOJIS.length; i++) {
+          emoji = EMOJIS[(EMOJIS.indexOf(emoji) + 1) % EMOJIS.length];
+          pts   = emojiCache.get(emoji);
+        }
+      }
+
+      if (!pts || !pts.outline.length) return;
+
+      zoneEmoji[zone] = emoji;
+      zonePts[zone]   = pts;
+
+      const cx = zone === 'dev' ? leftCX : rightCX;
+      const cy = H * SHAPE_CY;
+
+      // Notify React overlay
+      onZoneActivateRef.current({
+        zone, cx, cy,
+        topY:    pts.topY,
+        bottomY: pts.bottomY,
+        minX:    pts.minX,
+        maxX:    pts.maxX,
+        emoji,
+      });
+
+      assignZone(particles, pts.outline, cx, cy, zone, 0, OUTLINE_SPREAD);
+      assignZone(particles, pts.fill,    cx, cy, zone, FILL_OFFSET, FILL_OFFSET + FILL_SPREAD);
+      assignZoneWave(
+        particles, pts.slow, cx, cy, zone,
+        zone === 'dev' ? -Infinity : colR,
+        zone === 'dev' ? colL      : Infinity,
+        SLOW_START, SLOW_START + SLOW_DURATION,
+      );
+    }
+
+    function releaseZone(zone: NonNullable<Zone>) {
+      for (const p of particles) { if (p.zone === zone) p.zone = null; }
+      delete zoneEmoji[zone];
+      delete zonePts[zone];
+      delete zoneActivatedAtMap[zone];
+      onZoneDeactivateRef.current(zone);
+    }
+
+    // Expose clear handler to React
+    clearSavedZoneRef.current = (zone: NonNullable<Zone>) => {
+      releaseZone(zone);
+      // If cursor is still hovering that margin, queue a fresh emoji immediately
+      if (activeZone === zone) {
+        pendingReactivateRef.current = zone;
+      }
+    };
+
+    // Auto-restore saved zones on mount
+    for (const [z, emoji] of Object.entries(savedEmojisRef.current) as [NonNullable<Zone>, string][]) {
+      zoneActivatedAtMap[z] = performance.now();
+      activateZone(z, emoji);
+    }
+
+    // ── Resize ────────────────────────────────────────────────────────────
+    let resizeTimer: ReturnType<typeof setTimeout>;
+
+    function onResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        sizeCanvas();
+        particles = poissonDisc(W + 100, H + 100, POISSON_R)
+          .map(p => new Particle(p.x - 50, p.y - 50));
+
+        // Clear all zone data and re-activate
+        for (const z of ['dev', 'org'] as NonNullable<Zone>[]) {
+          delete zoneEmoji[z];
+          delete zonePts[z];
+          delete zoneActivatedAtMap[z];
+        }
+
+        // Re-activate saved zones first
+        for (const [z, emoji] of Object.entries(savedEmojisRef.current) as [NonNullable<Zone>, string][]) {
+          zoneActivatedAtMap[z] = performance.now();
+          activateZone(z, emoji);
+        }
+
+        // Re-activate cursor zone if not already saved
+        if (activeZone && !savedEmojisRef.current[activeZone]) {
+          zoneActivatedAtMap[activeZone] = performance.now();
+          activateZone(activeZone);
+        }
+      }, 200);
+    }
+
+    window.addEventListener('resize', onResize);
+
+    // ── Zone transition tracking ──────────────────────────────────────────
+    let prevActiveZone: Zone = null;
+
+    // ── Render loop ───────────────────────────────────────────────────────
+    let raf: number;
+
+    function loop() {
+      const now = performance.now();
+
+      // Re-activate a zone cleared while cursor was still inside it
+      if (pendingReactivateRef.current !== null) {
+        const z = pendingReactivateRef.current as NonNullable<Zone>;
+        pendingReactivateRef.current = null;
+        zoneActivatedAtMap[z] = now;
+        activateZone(z);
+        prevActiveZone = z; // Prevent transition logic from double-firing this frame
+      }
+
+      // Detect cursor zone transitions
+      if (activeZone !== prevActiveZone) {
+        if (prevActiveZone !== null) {
+          const isSaved = !!savedEmojisRef.current[prevActiveZone];
+          if (!isSaved) {
+            releaseZone(prevActiveZone);
+          }
+          // If saved: particles stay, React keeps overlay
+        }
+
+        if (activeZone !== null) {
+          if (zoneActivatedAtMap[activeZone] === undefined) {
+            // Fresh zone — activate
+            zoneActivatedAtMap[activeZone] = now;
+            activateZone(activeZone);
+          } else {
+            // Returning to an already-active saved zone — re-notify React
+            const pts = zonePts[activeZone];
+            const cx  = activeZone === 'dev' ? leftCX : rightCX;
+            const cy  = H * SHAPE_CY;
+            if (pts && zoneEmoji[activeZone]) {
+              onZoneActivateRef.current({
+                zone: activeZone, cx, cy,
+                topY:    pts.topY,
+                bottomY: pts.bottomY,
+                minX:    pts.minX,
+                maxX:    pts.maxX,
+                emoji:   zoneEmoji[activeZone]!,
+              });
             }
+          }
+        }
+
+        prevActiveZone = activeZone;
+      }
+
+      cvSpeed *= SPEED_DECAY;
+
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+      ctx!.fillStyle = dark ? '#0f0f0f' : '#ffffff';
+      ctx!.fillRect(0, 0, W, H);
+
+      if (W >= 768) {
+        ctx!.save();
+        ctx!.beginPath();
+        ctx!.rect(0,    0, colL,     H);
+        ctx!.rect(colR, 0, W - colR, H);
+        ctx!.clip();
+
+        // Helper: is this particle currently in shape mode?
+        const isShapeParticle = (p: Particle) => {
+          if (p.zone === null) return false;
+          const at = zoneActivatedAtMap[p.zone];
+          if (at === undefined) return false;
+          return now - at >= p.startOffset;
         };
 
-        const handleResize = () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                width = window.innerWidth;
-                height = window.innerHeight;
-                canvas.width = width * dpr;
-                canvas.height = height * dpr;
-                ctx.scale(dpr, dpr);
-                canvas.style.width = `${width}px`;
-                canvas.style.height = `${height}px`;
-                initGrid();
-            }, 150);
+        // ── Physics update ──────────────────────────────────────────────
+        for (const p of particles) {
+          p.update(now, zoneActivatedAtMap, mx, my, cvSpeed, now);
+        }
+
+        // ── Pass 1: ambient dots ────────────────────────────────────────
+        ctx!.fillStyle = dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+        ctx!.beginPath();
+        for (const p of particles) {
+          if (!isShapeParticle(p)) p.draw(ctx!, DOT_R);
+        }
+        ctx!.fill();
+
+        // ── Pass 2: shape particles with emoji colour blend ─────────────
+        for (const p of particles) {
+          if (!isShapeParticle(p)) continue;
+
+          const at     = zoneActivatedAtMap[p.zone!]!;
+          const zoneAge = now - at;
+          const age    = zoneAge - p.startOffset;
+          const ramp   = Math.min(age / SPRING_RAMP, 1);
+          const eased  = ramp * ramp;
+
+          const r       = DOT_R + (SHAPE_DOT_R - DOT_R) * eased;
+          const startC  = dark ? 255 : 0;
+          const cr      = Math.round(startC + (p.tr - startC) * eased);
+          const cg      = Math.round(startC + (p.tg - startC) * eased);
+          const cb      = Math.round(startC + (p.tb - startC) * eased);
+          const ca      = 0.5 + 0.5 * eased;
+
+          ctx!.fillStyle = `rgba(${cr},${cg},${cb},${ca})`;
+          ctx!.beginPath();
+          ctx!.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx!.fill();
+        }
+
+        // ── Inner-edge gradient fade ────────────────────────────────────
+        // Draws a bg-coloured gradient over the particles at the inner
+        // edges of each margin so they blend into the content column
+        // rather than cutting off sharply.
+        const FADE_W  = 64;
+        const bgRGB   = dark ? '15,15,15' : '255,255,255';
+        const transp  = `rgba(${bgRGB},0)`;
+        const opaque  = `rgba(${bgRGB},1)`;
+
+        // Left margin — fade from particles (transparent) → content edge (opaque)
+        const gradL = ctx!.createLinearGradient(colL - FADE_W, 0, colL, 0);
+        gradL.addColorStop(0, transp);
+        gradL.addColorStop(1, opaque);
+        ctx!.fillStyle = gradL;
+        ctx!.fillRect(Math.max(0, colL - FADE_W), 0, FADE_W, H);
+
+        // Right margin — fade from content edge (opaque) → particles (transparent)
+        const gradR = ctx!.createLinearGradient(colR, 0, colR + FADE_W, 0);
+        gradR.addColorStop(0, opaque);
+        gradR.addColorStop(1, transp);
+        ctx!.fillStyle = gradR;
+        ctx!.fillRect(colR, 0, FADE_W, H);
+
+        ctx!.restore();
+      }
+
+      raf = requestAnimationFrame(loop);
+    }
+
+    loop();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(resizeTimer);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseleave', onLeave);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
+  // ── Overlay JSX ───────────────────────────────────────────────────────────
+  const zones = Object.keys(zoneInfoMap) as NonNullable<Zone>[];
+
+  return (
+    <>
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 pointer-events-none z-0"
+        aria-hidden
+      />
+
+      {zones.map(zone => {
+        const info      = zoneInfoMap[zone]!;
+        const visible   = !!buttonVisibleMap[zone];
+        const hoverMode = hoverModeMap[zone] ?? 'save';
+        const isSaved   = !!savedEmojis[zone];
+
+        // Label sits 40 px above the emoji's top edge, centred on the shape
+        const btnLeft = info.cx;
+        const btnTop  = info.cy + info.topY - 40;
+
+        const labelStyle: React.CSSProperties = {
+          position:     'fixed',
+          zIndex:        2,
+          left:          btnLeft,
+          top:           btnTop,
+          transform:    'translateX(-50%) translateY(-100%)',
+          display:      'flex',
+          alignItems:   'center',
+          gap:          '6px',
+          fontFamily:   'Figtree, system-ui, sans-serif',
+          fontWeight:    500,
+          fontSize:     '15px',
+          lineHeight:   '150%',
+          whiteSpace:   'nowrap',
+          userSelect:   'none',
+          color:        'var(--icon-active)',
         };
 
-        // Initialize display buffers
-        width = window.innerWidth;
-        height = window.innerHeight;
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-        ctx.scale(dpr, dpr);
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-        initGrid();
+        return (
+          <div key={zone}>
+            {/* ── Save the emoji? / Saved! toast ─────────────────────────── */}
+            <div
+              style={{
+                ...labelStyle,
+                opacity:       visible ? 1 : 0,
+                transition:   'opacity 0.7s ease',
+                pointerEvents: visible ? 'auto' : 'none',
+              }}
+            >
+              {!isSaved && hoverMode === 'save' && (
+                <button
+                  className="flex items-center gap-[6px] cursor-pointer"
+                  style={{ color: 'inherit', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                  onMouseEnter={e => {
+                    const path = e.currentTarget.querySelector<SVGPathElement>('path');
+                    if (path) path.style.stroke = '#48BA77';
+                  }}
+                  onMouseLeave={e => {
+                    const path = e.currentTarget.querySelector<SVGPathElement>('path');
+                    if (path) path.style.stroke = 'var(--icon-active)';
+                  }}
+                  onClick={() => handleSave(zone)}
+                >
+                  Save the emoji?
+                  {/* Icon on the right; only its stroke changes on hover */}
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+                    <path
+                      d="M4.1665 10.8335L7.49984 14.1668L15.8332 5.8335"
+                      style={{ stroke: 'var(--icon-active)', transition: 'stroke 0.15s ease' }}
+                      strokeWidth="1.25"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              )}
 
-        window.addEventListener('resize', handleResize);
+              {isSaved && hoverMode === 'saved' && <span>Saved!</span>}
+            </div>
 
-        const animate = () => {
-            // 4. Pure white (#FFFFFF) background reset per spec
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, width, height);
-
-            // 5. Render crisp, mathematical #202124 points 
-            ctx.fillStyle = DOT_COLOR;
-            ctx.beginPath(); // Batch drawing logic for massive performance jump (60FPS flawless)
-
-            const time = performance.now();
-            const currentState = hoverStateRef.current;
-            const mx = mouseRef.current.x;
-            const my = mouseRef.current.y;
-            const particles = particlesRef.current;
-
-            for (let i = 0; i < particles.length; i++) {
-                particles[i].update(time, currentState, mx, my);
-                particles[i].draw(ctx);
-            }
-
-            ctx.fill(); // Fill batched arc strokes
-            animationRef.current = requestAnimationFrame(animate);
-        };
-
-        animate();
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseleave', handleMouseLeave);
-            clearTimeout(resizeTimeout);
-            cancelAnimationFrame(animationRef.current);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [DOMURL]);
-
-    return (
-        <canvas
-            ref={canvasRef}
-            className="fixed inset-0 pointer-events-none z-0"
-        />
-    );
+            {/* ── Clear emoji — shown whenever mouse is on the canvas and
+                   the emoji is saved (hidden while the "Saved!" toast shows) ── */}
+            {isSaved && cursorMargin === zone && !visible && (
+              <div style={{ ...labelStyle, pointerEvents: 'auto' }}>
+                <button
+                  className="cursor-pointer"
+                  style={{ color: 'var(--icon-active)', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#E5484D')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--icon-active)')}
+                  onClick={() => handleClear(zone)}
+                >
+                  Clear emoji
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
 }

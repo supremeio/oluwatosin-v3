@@ -71,7 +71,7 @@ function EmptyStateImage(): React.ReactElement {
 
 function ExperienceRow({ experience }: { experience: Experience }): React.ReactElement {
   return (
-    <div className="group flex gap-[8px] items-center w-full">
+    <div className="group flex gap-[8px] items-center w-full py-[8px] group-hover/experiences:opacity-40 hover:!opacity-100 transition-opacity duration-150">
       <div className="flex gap-[8px] items-center min-w-0">
         <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px] truncate">
           {experience.title}
@@ -97,7 +97,7 @@ function PastExperiencesSection(): React.ReactElement {
   return (
     <section className="flex flex-col gap-[16px] items-start w-full">
       <SectionLabel>Past experiences</SectionLabel>
-      <div className="flex flex-col gap-[16px] items-start w-full">
+      <div className="flex flex-col items-start w-full group/experiences">
         {EXPERIENCES.map((exp) => (
           <ExperienceRow key={`${exp.title}-${exp.company}`} experience={exp} />
         ))}

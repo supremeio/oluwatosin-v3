@@ -44,9 +44,9 @@ function WritingsSection(): React.ReactElement {
   return (
     <section className="flex flex-col gap-[16px] items-start">
       <SectionLabel>WRITINGS</SectionLabel>
-      <div className="flex flex-col gap-[16px] items-start w-full">
+      <div className="flex flex-col items-start w-full group/writings">
         {WRITINGS_ITEMS.map((item) => (
-          <div key={item.title} className="group flex gap-[8px] items-center w-full">
+          <div key={item.title} className="group flex gap-[8px] items-center w-full py-[8px] group-hover/writings:opacity-40 hover:!opacity-100 transition-opacity duration-150">
             <div className="flex gap-[4px] items-center min-w-0 md:shrink-0">
               <LinkedText className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary truncate min-w-0">
                 {item.title}
