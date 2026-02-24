@@ -19,9 +19,9 @@ const SPRING_RAMP   = 500;    // ms — ease-in window: REST_K → SHAPE_K
 
 // Ambient drift — dual-frequency Lissajous gives each particle a slow,
 // organic looping path that's clearly visible but never distracting
-const DRIFT_FREQ    = 0.00068;  // ~1.5× faster than before
+const DRIFT_FREQ    = 0.00136;
 const DRIFT_AMP     = 3.8;
-const DRIFT_FREQ2   = 0.00028;
+const DRIFT_FREQ2   = 0.00056;
 const DRIFT_AMP2    = 1.6;
 
 // Cursor interaction — cubic ease-out for smoother halo edge
@@ -34,6 +34,7 @@ const SPEED_DECAY   = 0.88;
 // Layout
 const CONTENT_W     = 580;
 const COL_GAP       = 20;
+const FADE_W        = 120;  // gradient fade width at all four screen edges
 
 // Emoji scan steps — three density tiers
 const SCAN_STEP      = 11;
@@ -52,7 +53,6 @@ const TEXT_APPEAR_AT = OUTLINE_SPREAD;
 // Zone anchor margins (px)
 const ZONE_TOP_MARGIN    = 80;   // left emoji: top edge 80px from top
 const ZONE_BOTTOM_MARGIN = 160;  // right emoji: bottom edge 160px from bottom
-
 
 const LS_KEY = 'portfolio-emoji';
 
@@ -750,23 +750,20 @@ export function CanvasParticleBackground() {
           ctx!.fill();
         }
 
-        // ── Inner-edge gradient fade ────────────────────────────────────
-        // Draws a bg-coloured gradient over the particles at the inner
-        // edges of each margin so they blend into the content column
-        // rather than cutting off sharply.
-        const FADE_W  = 120;
+        // ── Inner-edge gradient fade (clipped to margin columns) ───────
+        // Fades particles toward the content column border.
         const bgRGB   = dark ? '15,15,15' : '255,255,255';
         const transp  = `rgba(${bgRGB},0)`;
         const opaque  = `rgba(${bgRGB},1)`;
 
-        // Left margin — fade from particles (transparent) → content edge (opaque)
+        // Left margin inner edge — transparent → opaque toward content
         const gradL = ctx!.createLinearGradient(colL - FADE_W, 0, colL, 0);
         gradL.addColorStop(0, transp);
         gradL.addColorStop(1, opaque);
         ctx!.fillStyle = gradL;
         ctx!.fillRect(Math.max(0, colL - FADE_W), 0, FADE_W, H);
 
-        // Right margin — fade from content edge (opaque) → particles (transparent)
+        // Right margin inner edge — opaque toward content → transparent
         const gradR = ctx!.createLinearGradient(colR, 0, colR + FADE_W, 0);
         gradR.addColorStop(0, opaque);
         gradR.addColorStop(1, transp);
@@ -774,6 +771,32 @@ export function CanvasParticleBackground() {
         ctx!.fillRect(colR, 0, FADE_W, H);
 
         ctx!.restore();
+
+        // ── Outer screen-edge fades (full viewport, no clip) ───────────
+        // Fades particles at all four screen borders.
+        const gradOL = ctx!.createLinearGradient(0, 0, FADE_W, 0);
+        gradOL.addColorStop(0, opaque);
+        gradOL.addColorStop(1, transp);
+        ctx!.fillStyle = gradOL;
+        ctx!.fillRect(0, 0, FADE_W, H);
+
+        const gradOR = ctx!.createLinearGradient(W - FADE_W, 0, W, 0);
+        gradOR.addColorStop(0, transp);
+        gradOR.addColorStop(1, opaque);
+        ctx!.fillStyle = gradOR;
+        ctx!.fillRect(W - FADE_W, 0, FADE_W, H);
+
+        const gradOT = ctx!.createLinearGradient(0, 0, 0, FADE_W);
+        gradOT.addColorStop(0, opaque);
+        gradOT.addColorStop(1, transp);
+        ctx!.fillStyle = gradOT;
+        ctx!.fillRect(0, 0, W, FADE_W);
+
+        const gradOB = ctx!.createLinearGradient(0, H - FADE_W, 0, H);
+        gradOB.addColorStop(0, transp);
+        gradOB.addColorStop(1, opaque);
+        ctx!.fillStyle = gradOB;
+        ctx!.fillRect(0, H - FADE_W, W, FADE_W);
       }
 
       raf = requestAnimationFrame(loop);
