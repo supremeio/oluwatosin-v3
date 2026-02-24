@@ -91,16 +91,18 @@ async function getShapeCoordinates(svgString: string, DOMURL: typeof window.URL 
 
             // Draw SVG occupying the full draw size
             octx.drawImage(img, 0, 0, drawSize, drawSize);
-            const data32 = new Uint32Array(octx.getImageData(0, 0, drawSize, drawSize).data.buffer);
 
+            // Use raw Uint8ClampedArray for universal Endian-safe pixel checking
+            const imageData = octx.getImageData(0, 0, drawSize, drawSize).data;
             const coords: { x: number, y: number }[] = [];
             const halfSize = drawSize / 2;
 
             // Scan image data at intervals matching desired stipple density
             for (let y = 0; y < drawSize; y += pointDensity) {
                 for (let x = 0; x < drawSize; x += pointDensity) {
-                    const alpha = data32[y * drawSize + x] & 0xff000000;
-                    if (alpha !== 0) {
+                    const index = (y * drawSize + x) * 4;
+                    const alpha = imageData[index + 3];
+                    if (alpha > 50) { // Threshold for actual stroke presence
                         coords.push({ x: x - halfSize, y: y - halfSize });
                     }
                 }
@@ -113,25 +115,28 @@ async function getShapeCoordinates(svgString: string, DOMURL: typeof window.URL 
     });
 }
 
-const DEV_BRACKETS_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <path d="M 35 15 Q 15 15 15 35 L 15 45 Q 15 50 5 50 Q 15 50 15 55 L 15 65 Q 15 85 35 85" stroke="black" stroke-width="4" stroke-linecap="round" fill="none"/>
-  <path d="M 65 15 Q 85 15 85 35 L 85 45 Q 85 50 95 50 Q 85 50 85 55 L 85 65 Q 85 85 65 85" stroke="black" stroke-width="4" stroke-linecap="round" fill="none"/>
+// Thick strokes and explicit dimensions guarantee the browser renders the Blob correctly.
+const DEV_BRACKETS_SVG = `<svg width="400" height="400" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 35 15 Q 15 15 15 35 L 15 45 Q 15 50 5 50 Q 15 50 15 55 L 15 65 Q 15 85 35 85" stroke="black" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M 65 15 Q 85 15 85 35 L 85 45 Q 85 50 95 50 Q 85 50 85 55 L 85 65 Q 85 85 65 85" stroke="black" stroke-width="8" stroke-linecap="round" fill="none"/>
 </svg>`;
 
-const ORG_BUILDING_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="35" stroke="black" stroke-width="4" fill="none" stroke-dasharray="8 6"/>
-  <circle cx="50" cy="50" r="22" stroke="black" stroke-width="3" fill="none"/>
-  <circle cx="50" cy="50" r="8" stroke="black" stroke-width="3" fill="none"/>
+const ORG_BUILDING_SVG = `<svg width="400" height="400" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="50" cy="50" r="35" stroke="black" stroke-width="8" fill="none" stroke-dasharray="8 6"/>
+  <circle cx="50" cy="50" r="22" stroke="black" stroke-width="6" fill="none"/>
+  <circle cx="50" cy="50" r="8" stroke="black" stroke-width="6" fill="none"/>
 </svg>`;
 
 export function CanvasParticleBackground(): React.ReactElement {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const { hoverState } = useBackground();
 
-    // Track hover state internally via ref so the animation loop always reads the latest value
-    // without re-firing the entire useEffect and resetting the Grid arrays.
     const hoverStateRef = useRef<HoverState>(hoverState);
-    hoverStateRef.current = hoverState;
+
+    // Safely sync React Context value to the animation loop ref
+    useEffect(() => {
+        hoverStateRef.current = hoverState;
+    }, [hoverState]);
 
     const particlesRef = useRef<Particle[]>([]);
     const animationRef = useRef<number>(0);
@@ -271,7 +276,8 @@ export function CanvasParticleBackground(): React.ReactElement {
 
             // 5. Crisp, highly stippled dots rendered simultaneously
             ctx.fillStyle = DOT_COLOR;
-            const time = Date.now();
+            // performance.now() is smoother and larger precision than Date.now() for trigonometric operations
+            const time = performance.now();
             const currentState = hoverStateRef.current;
 
             const particles = particlesRef.current;
@@ -291,7 +297,7 @@ export function CanvasParticleBackground(): React.ReactElement {
             cancelAnimationFrame(animationRef.current);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [DOMURL]); // Intentionally omitting hoverState so canvas does not unmount.
+    }, [DOMURL]);
 
     return (
         <canvas
