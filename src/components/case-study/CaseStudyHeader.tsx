@@ -69,7 +69,7 @@ export function CaseStudyHeader({
         aria-hidden
       >
         <div className="bg-bg-secondary rounded-[40px] px-[8px] py-[4px] w-full flex items-center justify-center">
-          <span className="font-figtree font-medium text-[14px] leading-[20px] text-text-primary text-center w-[28px]">
+          <span className="font-figtree font-medium text-[14px] leading-[20px] text-text-primary tabular-nums">
             {progress}%
           </span>
         </div>
