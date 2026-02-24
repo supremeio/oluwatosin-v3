@@ -184,9 +184,7 @@ export default function AboutPage(): React.ReactElement {
         <p className="font-figtree font-medium text-[15px] leading-[1.5] text-text-primary w-full mt-[22.5px]">
           I take pictures.
         </p>
-        <p className="font-figtree font-medium text-[15px] leading-[1.5] text-text-primary w-full">
-          I love being involved those stuff floating...
-        </p>
+
       </div>
 
       <div className="mt-[40px]">
