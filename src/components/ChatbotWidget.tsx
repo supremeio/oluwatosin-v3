@@ -442,18 +442,17 @@ export function ChatbotWidget(): React.ReactElement {
 
       <aside
         className={`fixed z-30 pointer-events-none ${showChat
-          ? 'top-[48px] bottom-[24px] left-[24px] right-[24px] md:inset-auto md:hidden min-[1372px]:block min-[1372px]:inset-auto min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
+          ? 'bottom-[24px] left-[24px] right-[24px] h-[calc(100dvh-72px)] md:inset-auto md:h-auto md:hidden min-[1372px]:block min-[1372px]:inset-auto min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
           : 'hidden min-[1372px]:block min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
           }`}
         aria-label="Quick answer AI"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         style={{
-          // Translate the entire widget up by the keyboard height so the input
-          // field clears the keyboard. The existing bottom-[24px] class then
-          // provides a natural 24px gap above the keyboard.
-          transform: keyboardOffset > 0 ? `translateY(-${keyboardOffset}px)` : undefined,
-          transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          // Push the widget up above the keyboard. Height stays fixed (no top
+          // anchor), so the widget slides up as a unit without shrinking.
+          bottom: keyboardOffset > 0 ? `${keyboardOffset + 16}px` : undefined,
+          transition: 'bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         <motion.div
