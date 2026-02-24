@@ -48,7 +48,7 @@ export default function ColophonPage(): React.ReactElement {
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between w-full gap-[24px]">
+      <div className="flex flex-col gap-[8px] items-start w-full">
         <div className="flex flex-col gap-[4px] items-start">
           <h1 className="font-figtree font-semibold text-[20px] leading-normal text-text-primary">
             Colophon
@@ -57,7 +57,7 @@ export default function ColophonPage(): React.ReactElement {
             How I put this portfolio together
           </p>
         </div>
-        <div className="flex items-center gap-[4px] shrink-0 pt-[4px]">
+        <div className="flex gap-[4px] items-center">
           <a
             href="https://github.com/supremeio/oluwatosin-v3"
             target="_blank"
@@ -87,11 +87,22 @@ export default function ColophonPage(): React.ReactElement {
 
       {/* Intro — mt-[111px] pushes it to align with the back button at top-[209px]:
           main pt-[40] + header (30+4+24=58px) + 111 = 209px */}
-      <p className="font-figtree font-medium text-[15px] leading-[1.5] text-text-primary mt-[111px]">
-        This portfolio demonstrates my approach to solving complex problems. Each case study is
-        structured the same way: I identify the challenge, describe my method for tackling it,
-        and show the real-world impact. This mirrors how I work on professional projects.
-      </p>
+      <div className="flex flex-col gap-[16px] items-start mt-[111px]">
+        {/* Mobile back button */}
+        <Link
+          href="/"
+          className="flex md:hidden gap-[4px] items-center text-text-primary"
+          aria-label="Back to home"
+        >
+          <Image src="/Back arrow.svg" alt="" width={24} height={24} className="shrink-0" />
+          <span className="font-figtree font-normal italic text-[16px] leading-normal">Back</span>
+        </Link>
+        <p className="font-figtree font-medium text-[15px] leading-[1.5] text-text-primary">
+          This portfolio demonstrates my approach to solving complex problems. Each case study is
+          structured the same way: I identify the challenge, describe my method for tackling it,
+          and show the real-world impact. This mirrors how I work on professional projects.
+        </p>
+      </div>
 
       <div className="flex flex-col gap-[40px] mt-[40px]">
         {/* Design and development */}
