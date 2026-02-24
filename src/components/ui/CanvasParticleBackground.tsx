@@ -51,7 +51,7 @@ const TEXT_APPEAR_AT = OUTLINE_SPREAD;
 
 // Zone anchor margins (px)
 const ZONE_TOP_MARGIN    = 80;   // left emoji: top edge 80px from top
-const ZONE_BOTTOM_MARGIN = 120;  // right emoji: bottom edge 120px from bottom
+const ZONE_BOTTOM_MARGIN = 160;  // right emoji: bottom edge 160px from bottom
 
 
 const LS_KEY = 'portfolio-emoji';
