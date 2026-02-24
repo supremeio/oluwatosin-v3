@@ -5,7 +5,6 @@ import { useBackground, HoverState } from '@/providers/BackgroundProvider';
 import { simplex2 } from '@/utils/noise';
 
 // Physics Configuration
-const PARTICLE_COUNT = 2400; // Dense fluid field
 const DOT_SIZE = 1.5;
 const AMBIENT_COLOR = '#00000030';
 const ACTIVE_COLOR = '#4169FF';
@@ -38,9 +37,9 @@ class Particle {
     seed: number;
     wobbleSpeed: number;
 
-    constructor(w: number, h: number) {
-        this.x = Math.random() * w;
-        this.y = Math.random() * h;
+    constructor(x: number, y: number) {
+        this.x = x;
+        this.y = y;
         this.baseX = this.x;
         this.baseY = this.y;
         this.seed = Math.random() * 1000;
@@ -129,13 +128,20 @@ class Particle {
 
     draw(ctx: CanvasRenderingContext2D, isHoveringShape: boolean) {
         let color = AMBIENT_COLOR;
-        let radius = DOT_SIZE / 2;
+        let size = DOT_SIZE;
         let alpha = 1;
 
         if (isHoveringShape) {
             if (this.isShape) {
                 color = ACTIVE_COLOR;
-                radius = DOT_SIZE * 0.8;
+                size = DOT_SIZE * 1.5;
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = color;
+                // Shapes look slightly better rounded, but rect is faster. Doing slight exception for active shapes
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, size / 2, 0, Math.PI * 2);
+                ctx.fill();
+                return;
             } else {
                 color = AMBIENT_COLOR;
                 alpha = 0.2; // Dim background stars
@@ -144,9 +150,8 @@ class Particle {
 
         ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
-        ctx.fill();
+        // Massive performance gain drawing a rectangle instead of an arc for tiny distant dots
+        ctx.fillRect(this.x - size / 2, this.y - size / 2, size, size);
         ctx.globalAlpha = 1; // Reset
     }
 }
@@ -258,7 +263,10 @@ export function CanvasParticleBackground(): React.ReactElement {
 
         const initParticles = (w: number, h: number) => {
             const pArray: Particle[] = [];
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
+            // Calculate dense coverage: roughly 1 particle per 400 pixels of area
+            // Cap at 8000 to maintain 60fps on average machines
+            const particleCount = Math.min(8000, Math.floor((w * h) / 400));
+            for (let i = 0; i < particleCount; i++) {
                 pArray.push(new Particle(w, h));
             }
             particlesRef.current = pArray;
