@@ -380,28 +380,19 @@ export function ChatbotWidget(): React.ReactElement {
   // Track the virtual keyboard height using visualViewport to shift the modal up
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
 
-    const viewport = window.visualViewport;
-
-    const handleResize = () => {
-      // If we are on desktop sizing, prevent offset rendering
-      if (window.innerWidth >= 768) {
-        setKeyboardOffset(0);
-        return;
-      }
-      // InnerHeight (layout viewport) minus visualViewport gives the keyboard height exactly
-      const offset = window.innerHeight - viewport.height;
+    const update = () => {
+      if (window.innerWidth >= 768) { setKeyboardOffset(0); return; }
+      // On iOS: window.innerHeight is stable; vv.height shrinks when keyboard appears.
+      // On Android: both shrink together (offset ≈ 0), but fixed elements already
+      // reposition automatically, so no manual offset is needed there.
+      const offset = window.innerHeight - vv.height;
       setKeyboardOffset(offset > 50 ? offset : 0);
     };
 
-    viewport.addEventListener('resize', handleResize);
-    viewport.addEventListener('scroll', handleResize);
-    handleResize(); // trigger initial
-
-    return () => {
-      viewport.removeEventListener('resize', handleResize);
-      viewport.removeEventListener('scroll', handleResize);
-    };
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
   }, []);
 
   useEffect(() => {
@@ -458,10 +449,11 @@ export function ChatbotWidget(): React.ReactElement {
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         style={{
-          // Apply dynamic keyboard offset pushing the modal up cleanly.
-          // Add a 16px buffer above the physical keyboard so it looks neat.
-          bottom: keyboardOffset > 0 ? `calc(${keyboardOffset}px + 16px)` : undefined,
-          transition: 'bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+          // Translate the entire widget up by the keyboard height so the input
+          // field clears the keyboard. The existing bottom-[24px] class then
+          // provides a natural 24px gap above the keyboard.
+          transform: keyboardOffset > 0 ? `translateY(-${keyboardOffset}px)` : undefined,
+          transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         <motion.div
