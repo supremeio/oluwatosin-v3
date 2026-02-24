@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Figtree, Sora, Kode_Mono } from 'next/font/google';
 import Script from 'next/script';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { GlobalOverlay } from '@/components/layout/GlobalOverlay';
 import './globals.css';
 
 const figtree = Figtree({
@@ -44,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${figtree.variable} ${sora.variable} ${kodeMono.variable} min-h-screen antialiased`}
+        className={`${figtree.variable} ${sora.variable} ${kodeMono.variable} min-h-screen antialiased bg-bg-main`}
       >
         <Script
           id="theme-init"
@@ -54,6 +55,7 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider>
+          <GlobalOverlay />
           {children}
         </ThemeProvider>
       </body>

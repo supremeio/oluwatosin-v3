@@ -1,22 +1,15 @@
-import { ChatbotWidget } from '@/components/ChatbotWidget';
-import { FloatingNav } from '@/components/FloatingNav';
-import { ChatbotProvider } from '@/providers/ChatbotProvider';
 import { TopActions } from '@/components/TopActions';
 import { Footer } from '@/components/Footer';
-import { CanvasParticleBackground } from '@/components/ui/CanvasParticleBackground';
 
 interface PageLayoutProps {
   children: React.ReactNode;
   /** Content rendered before `<main>`, outside the centered column (e.g. home page header) */
   beforeMain?: React.ReactNode;
-  /** Hide the floating bottom navigation */
-  hideNav?: boolean;
 }
 
-export function PageLayout({ children, beforeMain, hideNav }: PageLayoutProps): React.ReactElement {
+export function PageLayout({ children, beforeMain }: PageLayoutProps): React.ReactElement {
   return (
-    <div className="relative min-h-screen bg-bg-main overflow-x-hidden">
-      <CanvasParticleBackground />
+    <div className="relative min-h-screen overflow-x-hidden">
       {beforeMain}
       <TopActions />
 
@@ -27,11 +20,6 @@ export function PageLayout({ children, beforeMain, hideNav }: PageLayoutProps): 
           <Footer />
         </div>
       </main>
-
-      <ChatbotProvider>
-        {!hideNav && <FloatingNav />}
-        <ChatbotWidget />
-      </ChatbotProvider>
     </div>
   );
 }

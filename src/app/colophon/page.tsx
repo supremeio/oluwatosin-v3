@@ -35,7 +35,7 @@ function Section({ heading, children }: { heading: string; children: React.React
 
 export default function ColophonPage(): React.ReactElement {
   return (
-    <PageLayout hideNav>
+    <PageLayout>
       {/* Back button — fixed to the left of the content column on desktop */}
       <Link
         href="/"
