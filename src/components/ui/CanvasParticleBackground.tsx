@@ -173,13 +173,21 @@ async function getShapeCoordinates(svgString: string, DOMURL: typeof window.URL 
         const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
         const url = DOMURL.createObjectURL(svgBlob);
 
+        img.onerror = () => {
+            DOMURL.revokeObjectURL(url);
+            resolve([]);
+        };
+
         img.onload = () => {
             const oc = document.createElement('canvas');
             const drawSize = 400; // Hardcoded scaling canvas to match the widescreen zones
             oc.width = drawSize;
             oc.height = drawSize;
             const octx = oc.getContext('2d', { willReadFrequently: true });
-            if (!octx) return resolve([]);
+            if (!octx) {
+                DOMURL.revokeObjectURL(url);
+                return resolve([]);
+            }
 
             // Draw SVG occupying the full draw size
             octx.drawImage(img, 0, 0, drawSize, drawSize);
@@ -267,67 +275,73 @@ export function CanvasParticleBackground(): React.ReactElement {
             const points = generatePoissonDisc(width + 100, height + 100, POISSON_RADIUS);
             const pArray: Particle[] = points.map(pt => new Particle(pt.x - 50, pt.y - 50));
 
-            // 2. Parse paths to establish exact pixel coordinates for stipple morphing
-            const devPoints = await getShapeCoordinates(DEV_BRACKETS_SVG, DOMURL, 12);
-            const orgPoints = await getShapeCoordinates(ORG_BUILDING_SVG, DOMURL, 12);
-
-            // 3. Spatially greedily assign closest particles to each SVG target sequentially
-            const isMobile = width < 768;
-            const devCenterX = isMobile ? width * 0.5 : width * 0.3;
-            const orgCenterX = isMobile ? width * 0.5 : width * 0.7;
-            const targetY = height * 0.5;
-
-            devPoints.forEach(pt => {
-                let closest = null;
-                let minDist = Infinity;
-                const globalX = devCenterX + pt.x;
-                const globalY = targetY + pt.y;
-
-                for (let i = 0; i < pArray.length; i++) {
-                    const p = pArray[i];
-                    if (p.assignedPath) continue;
-
-                    const dx = p.originX - globalX;
-                    const dy = p.originY - globalY;
-                    const dist = dx * dx + dy * dy;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closest = p;
-                    }
-                }
-                if (closest) {
-                    closest.assignedPath = 'developer';
-                    closest.targetX = globalX;
-                    closest.targetY = globalY;
-                }
-            });
-
-            orgPoints.forEach(pt => {
-                let closest = null;
-                let minDist = Infinity;
-                const globalX = orgCenterX + pt.x;
-                const globalY = targetY + pt.y;
-
-                for (let i = 0; i < pArray.length; i++) {
-                    const p = pArray[i];
-                    if (p.assignedPath) continue;
-
-                    const dx = p.originX - globalX;
-                    const dy = p.originY - globalY;
-                    const dist = dx * dx + dy * dy;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closest = p;
-                    }
-                }
-                if (closest) {
-                    closest.assignedPath = 'organization';
-                    closest.targetX = globalX;
-                    closest.targetY = globalY;
-                }
-            });
-
+            // INSTANTLY assign array so the resting field draws frame 1, zero lag.
             particlesRef.current = pArray;
+
+            // 2. Parse paths to establish exact pixel coordinates for stipple morphing
+            try {
+                const devPoints = await getShapeCoordinates(DEV_BRACKETS_SVG, DOMURL, 12);
+                const orgPoints = await getShapeCoordinates(ORG_BUILDING_SVG, DOMURL, 12);
+
+                // 3. Spatially greedily assign closest particles to each SVG target sequentially
+                const isMobile = width < 768;
+                const devCenterX = isMobile ? width * 0.5 : width * 0.3;
+                const orgCenterX = isMobile ? width * 0.5 : width * 0.7;
+                const targetY = height * 0.5;
+
+                devPoints.forEach(pt => {
+                    let closest = null;
+                    let minDist = Infinity;
+                    const globalX = devCenterX + pt.x;
+                    const globalY = targetY + pt.y;
+
+                    for (let i = 0; i < pArray.length; i++) {
+                        const p = pArray[i];
+                        if (p.assignedPath) continue;
+
+                        const dx = p.originX - globalX;
+                        const dy = p.originY - globalY;
+                        const dist = dx * dx + dy * dy;
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closest = p;
+                        }
+                    }
+                    if (closest) {
+                        closest.assignedPath = 'developer';
+                        closest.targetX = globalX;
+                        closest.targetY = globalY;
+                    }
+                });
+
+                orgPoints.forEach(pt => {
+                    let closest = null;
+                    let minDist = Infinity;
+                    const globalX = orgCenterX + pt.x;
+                    const globalY = targetY + pt.y;
+
+                    for (let i = 0; i < pArray.length; i++) {
+                        const p = pArray[i];
+                        if (p.assignedPath) continue;
+
+                        const dx = p.originX - globalX;
+                        const dy = p.originY - globalY;
+                        const dist = dx * dx + dy * dy;
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closest = p;
+                        }
+                    }
+                    if (closest) {
+                        closest.assignedPath = 'organization';
+                        closest.targetX = globalX;
+                        closest.targetY = globalY;
+                    }
+                });
+
+            } catch (err) {
+                console.error("SVG Mapping Error:", err);
+            }
         };
 
         const handleResize = () => {
