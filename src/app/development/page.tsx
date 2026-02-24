@@ -46,14 +46,16 @@ function ExternalLinkIndicator(): React.ReactElement {
 function PageHeader(): React.ReactElement {
   return (
     <header className="flex flex-col gap-[40px] items-start w-full">
-      <div className="flex flex-col gap-[4px] items-start w-full">
-        <h1 className="font-figtree font-semibold text-[20px] leading-[24px] text-text-primary">
-          <ScrambleText text="Code meets design" />
-        </h1>
-        <p className="font-figtree font-medium text-[16px] leading-[19px] text-text-secondary">
-          Design engineering lab
-        </p>
-        <div className="flex gap-[4px] items-center">
+      <div className="flex items-start justify-between w-full">
+        <div className="flex flex-col gap-[4px] items-start">
+          <h1 className="font-figtree font-semibold text-[20px] leading-[24px] text-text-primary">
+            <ScrambleText text="Code meets design" />
+          </h1>
+          <p className="font-figtree font-medium text-[16px] leading-[19px] text-text-secondary">
+            Design engineering lab
+          </p>
+        </div>
+        <div className="flex gap-[4px] items-center mt-[24px] md:mt-0">
           <Image src="/GitHub icon.svg" alt="" width={16} height={16} className="shrink-0" />
           <LinkedText className="font-figtree font-normal text-[15px] leading-[24px] text-text-primary">
             GitHub
