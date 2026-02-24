@@ -5,6 +5,7 @@ import { SectionLabel } from '@/components/ui/SectionLabel';
 import { LinkedText } from '@/components/ui/LinkedText';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
 import { ScrambleText } from '@/components/ui/ScrambleText';
+import { useBackground } from '@/providers/BackgroundProvider';
 
 export const metadata: Metadata = {
   title: 'Code meets design — Design Engineering Lab',
@@ -52,9 +53,15 @@ function ExternalLinkIndicator(): React.ReactElement {
 
 
 function PageHeader(): React.ReactElement {
+  const { setHoverState } = useBackground();
+
   return (
     <header className="flex flex-col gap-[40px] items-start w-full">
-      <div className="flex flex-col gap-[8px] items-start w-full">
+      <div
+        className="flex flex-col gap-[8px] items-start w-full group cursor-default"
+        onMouseEnter={() => setHoverState('developer')}
+        onMouseLeave={() => setHoverState('default')}
+      >
         <div className="flex flex-col gap-[4px] items-start">
           <h1 className="font-figtree font-semibold text-[20px] leading-[24px] text-text-primary">
             <ScrambleText text="Code meets design" />

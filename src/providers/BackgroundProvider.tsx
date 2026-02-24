@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 
-export type HoverState = 'default' | 'developer';
+export type HoverState = 'default' | 'developer' | 'organization';
 
 interface BackgroundContextType {
     hoverState: HoverState;
