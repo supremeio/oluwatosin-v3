@@ -371,10 +371,38 @@ function ChatbotChat({
 export function ChatbotWidget(): React.ReactElement {
   const [state, setState] = useState<ChatbotState>('default');
   const [isHovering, setIsHovering] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const { isChatOpen, openChat, closeChat } = useChatbotContext();
 
   const showExpanded = isHovering && state === 'default';
   const showChat = state === 'chat' || state === 'menu' || state === 'replied';
+
+  // Track the virtual keyboard height using visualViewport to shift the modal up
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const viewport = window.visualViewport;
+
+    const handleResize = () => {
+      // If we are on desktop sizing, prevent offset rendering
+      if (window.innerWidth >= 768) {
+        setKeyboardOffset(0);
+        return;
+      }
+      // InnerHeight (layout viewport) minus visualViewport gives the keyboard height exactly
+      const offset = window.innerHeight - viewport.height;
+      setKeyboardOffset(offset > 50 ? offset : 0);
+    };
+
+    viewport.addEventListener('resize', handleResize);
+    viewport.addEventListener('scroll', handleResize);
+    handleResize(); // trigger initial
+
+    return () => {
+      viewport.removeEventListener('resize', handleResize);
+      viewport.removeEventListener('scroll', handleResize);
+    };
+  }, []);
 
   useEffect(() => {
     if (isChatOpen) {
@@ -396,6 +424,7 @@ export function ChatbotWidget(): React.ReactElement {
   const handleClose = useCallback(() => {
     setState('default');
     setIsHovering(false);
+    setKeyboardOffset(0); // clear on close
   }, []);
   const handleStartChat = useCallback(() => setState('chat'), []);
   const handleOpenMenu = useCallback(() => setState('menu'), []);
@@ -428,6 +457,12 @@ export function ChatbotWidget(): React.ReactElement {
         aria-label="Quick answer AI"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
+        style={{
+          // Apply dynamic keyboard offset pushing the modal up cleanly.
+          // Add a 16px buffer above the physical keyboard so it looks neat.
+          bottom: keyboardOffset > 0 ? `calc(${keyboardOffset}px + 16px)` : undefined,
+          transition: 'bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
       >
         <motion.div
           layout
