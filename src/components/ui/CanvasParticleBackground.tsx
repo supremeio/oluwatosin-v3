@@ -2,77 +2,156 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useBackground, HoverState } from '@/providers/BackgroundProvider';
+import { simplex2 } from '@/utils/noise';
 
-// Configuration
+// Physics Configuration
+const PARTICLE_COUNT = 2400; // Dense fluid field
 const DOT_SIZE = 1.5;
-const DOT_SPACING = 32;
-const GRID_DOT_COLOR = '#00000040'; // Slightly more visible black
-const ACTIVE_DOT_COLOR = '#4169FF'; // Primary blue
-const IDLE_OPACITY = 0.05; // When a shape is forming, other dots fade to this
-const SPRING_FACTOR = 0.05;
-const FRICTION = 0.85;
+const AMBIENT_COLOR = '#00000030';
+const ACTIVE_COLOR = '#4169FF';
+
+// Forces
+const NOISE_SCALE = 0.003;
+const NOISE_SPEED = 0.0003;
+const MAGNETIC_RADIUS = 150;
+const MAGNETIC_FORCE = 0.03;
+const SPRING_FACTOR = 0.08;
+const SHAPE_SPRING = 0.05;
+const FRICTION = 0.88;
 
 class Particle {
     x: number;
     y: number;
-    originX: number;
-    originY: number;
-    targetX: number;
-    targetY: number;
     vx: number = 0;
     vy: number = 0;
+
+    // Drift anchors
+    baseX: number;
+    baseY: number;
+
+    // Swarm targets
+    targetX: number | null = null;
+    targetY: number | null = null;
     isShape: boolean = false;
 
-    constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
-        this.originX = x;
-        this.originY = y;
-        this.targetX = x;
-        this.targetY = y;
+    // Kinetic juice variables
+    seed: number;
+    wobbleSpeed: number;
+
+    constructor(w: number, h: number) {
+        this.x = Math.random() * w;
+        this.y = Math.random() * h;
+        this.baseX = this.x;
+        this.baseY = this.y;
+        this.seed = Math.random() * 1000;
+        this.wobbleSpeed = 0.1 + Math.random() * 0.1;
     }
 
-    update(isHoveringShape: boolean) {
-        // Determine where particle should go
-        const destX = (isHoveringShape && this.isShape) ? this.targetX : this.originX;
-        const destY = (isHoveringShape && this.isShape) ? this.targetY : this.originY;
+    update(
+        time: number,
+        mouseX: number,
+        mouseY: number,
+        isHoveringShape: boolean,
+        w: number,
+        h: number
+    ) {
+        let fx = 0;
+        let fy = 0;
 
-        // Spring physics for organic "gathering" and "dispersing"
-        const dx = destX - this.x;
-        const dy = destY - this.y;
+        // 1. Morphing Geometry Force (Swarming)
+        if (isHoveringShape && this.isShape && this.targetX !== null && this.targetY !== null) {
+            // Kinetic Wobble when resting in shape
+            const wobbleX = Math.sin(time * this.wobbleSpeed + this.seed) * 2;
+            const wobbleY = Math.cos(time * this.wobbleSpeed + this.seed) * 2;
 
-        this.vx += dx * SPRING_FACTOR;
-        this.vy += dy * SPRING_FACTOR;
+            const dxTarget = (this.targetX + wobbleX) - this.x;
+            const dyTarget = (this.targetY + wobbleY) - this.y;
 
+            fx += dxTarget * SHAPE_SPRING;
+            fy += dyTarget * SHAPE_SPRING;
+
+            // Elastic cursor poke detection
+            const dxMouse = mouseX - this.x;
+            const dyMouse = mouseY - this.y;
+            const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
+
+            if (distMouse < 60) {
+                // Run away elastically
+                const force = (60 - distMouse) * 0.05;
+                fx -= (dxMouse / distMouse) * force;
+                fy -= (dyMouse / distMouse) * force;
+            }
+        }
+        // 2. Ambient Foundation (Noise Drift)
+        else {
+            // Fluid noise field
+            const angle = simplex2(this.x * NOISE_SCALE, this.y * NOISE_SCALE + time * NOISE_SPEED) * Math.PI * 2;
+            fx += Math.cos(angle) * 0.3;
+            fy += Math.sin(angle) * 0.3;
+
+            // Gentle spring back to origin bounded region so they don't all cluster over time
+            const dxBase = this.baseX - this.x;
+            const dyBase = this.baseY - this.y;
+            fx += dxBase * 0.0005;
+            fy += dyBase * 0.0005;
+
+            // 3. Magnetic Interaction
+            if (mouseX !== -1 && mouseY !== -1 && !isHoveringShape) {
+                const dxMouse = mouseX - this.x;
+                const dyMouse = mouseY - this.y;
+                const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
+
+                if (distMouse < MAGNETIC_RADIUS) {
+                    const force = (MAGNETIC_RADIUS - distMouse) / MAGNETIC_RADIUS * MAGNETIC_FORCE;
+                    fx += dxMouse * force;
+                    fy += dyMouse * force;
+                }
+            }
+        }
+
+        // Apply forces
+        this.vx += fx;
+        this.vy += fy;
         this.vx *= FRICTION;
         this.vy *= FRICTION;
 
         this.x += this.vx;
         this.y += this.vy;
+
+        // Wrap around gracefully if drifting offscreen
+        if (!isHoveringShape) {
+            if (this.x < 0) { this.x = w; this.baseX = w; }
+            if (this.x > w) { this.x = 0; this.baseX = 0; }
+            if (this.y < 0) { this.y = h; this.baseY = h; }
+            if (this.y > h) { this.y = 0; this.baseY = 0; }
+        }
     }
 
     draw(ctx: CanvasRenderingContext2D, isHoveringShape: boolean) {
-        let color = GRID_DOT_COLOR;
+        let color = AMBIENT_COLOR;
         let radius = DOT_SIZE / 2;
+        let alpha = 1;
 
         if (isHoveringShape) {
             if (this.isShape) {
-                color = ACTIVE_DOT_COLOR;
+                color = ACTIVE_COLOR;
                 radius = DOT_SIZE * 0.8;
             } else {
-                color = `rgba(0, 0, 0, ${IDLE_OPACITY})`;
+                color = AMBIENT_COLOR;
+                alpha = 0.2; // Dim background stars
             }
         }
 
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1; // Reset
     }
 }
 
-// Generate coordinates by drawing an SVG to an offscreen canvas and scanning pixels
-async function getShapeCoordinates(svgString: string, w: number, h: number, DOMURL: typeof window.URL | null, pointDensity: number = 6): Promise<{ x: number, y: number }[]> {
+async function getShapeCoordinates(svgString: string, w: number, h: number, DOMURL: typeof window.URL | null, pointDensity: number = 6, offsetDir: 'left' | 'right' | 'center' = 'center'): Promise<{ x: number, y: number }[]> {
     return new Promise((resolve) => {
         if (!DOMURL) return resolve([]);
 
@@ -82,29 +161,30 @@ async function getShapeCoordinates(svgString: string, w: number, h: number, DOMU
 
         img.onload = () => {
             const oc = document.createElement('canvas');
-            // Scale down inner drawing area so shape isn't massive
-            const drawSize = Math.min(w, h) * 0.5;
+            const drawSize = 300; // Fixed crisp target size
             oc.width = drawSize;
             oc.height = drawSize;
             const octx = oc.getContext('2d', { willReadFrequently: true });
             if (!octx) return resolve([]);
 
-            // Draw SVG centered
             octx.drawImage(img, 0, 0, drawSize, drawSize);
             const data32 = new Uint32Array(octx.getImageData(0, 0, drawSize, drawSize).data.buffer);
 
             const coords: { x: number, y: number }[] = [];
-            const offsetX = (w - drawSize) / 2;
-            const offsetY = (h - drawSize) / 2;
 
-            // Scan image data at intervals matching desired density
+            let offsetX = (w - drawSize) / 2;
+            let offsetY = (h - drawSize) / 2 - 50;
+
+            if (offsetDir === 'left') offsetX -= w * 0.2;
+            if (offsetDir === 'right') offsetX += w * 0.2;
+
             for (let y = 0; y < drawSize; y += pointDensity) {
                 for (let x = 0; x < drawSize; x += pointDensity) {
                     const alpha = data32[y * drawSize + x] & 0xff000000;
-                    if (alpha !== 0) { // If pixel is not transparent
+                    if (alpha !== 0) {
                         coords.push({
                             x: x + offsetX,
-                            y: y + offsetY - 50 // Shift up slightly for layout balance
+                            y: y + offsetY
                         });
                     }
                 }
@@ -117,29 +197,34 @@ async function getShapeCoordinates(svgString: string, w: number, h: number, DOMU
     });
 }
 
-// SVG Definitions for the shapes
+// Ultra-sharp SVG shapes
 const DEV_BRACKETS_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <path d="M 35 20 Q 20 20 20 35 L 20 45 Q 20 50 10 50 Q 20 50 20 55 L 20 65 Q 20 80 35 80" stroke="black" stroke-width="8" stroke-linecap="round" fill="none"/>
-  <path d="M 65 20 Q 80 20 80 35 L 80 45 Q 80 50 90 50 Q 80 50 80 55 L 80 65 Q 80 80 65 80" stroke="black" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M 35 20 Q 20 20 20 35 L 20 45 Q 20 50 10 50 Q 20 50 20 55 L 20 65 Q 20 80 35 80" stroke="black" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <path d="M 65 20 Q 80 20 80 35 L 80 45 Q 80 50 90 50 Q 80 50 80 55 L 80 65 Q 80 80 65 80" stroke="black" stroke-width="10" stroke-linecap="round" fill="none"/>
 </svg>`;
 
 const ORG_BUILDING_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <path d="M 20 80 L 20 40 L 50 20 L 80 40 L 80 80 Z" stroke="black" stroke-width="8" stroke-linejoin="round" fill="none"/>
-  <rect x="40" y="60" width="20" height="20" stroke="black" stroke-width="8" fill="none"/>
+  <circle cx="50" cy="50" r="30" stroke="black" stroke-width="6" fill="none"/>
+  <circle cx="50" cy="50" r="15" stroke="black" stroke-width="6" fill="none"/>
+  <circle cx="50" cy="50" r="2" fill="black"/>
+  <line x1="20" y1="50" x2="80" y2="50" stroke="black" stroke-width="4"/>
+  <line x1="50" y1="20" x2="50" y2="80" stroke="black" stroke-width="4"/>
 </svg>`;
 
 export function CanvasParticleBackground(): React.ReactElement {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const { hoverState } = useBackground();
+
     const particlesRef = useRef<Particle[]>([]);
     const animationRef = useRef<number>(0);
+    const mouseRef = useRef({ x: -1, y: -1 });
+
     const shapesCacheRef = useRef<Record<HoverState, { x: number, y: number }[]>>({
         'default': [],
         'developer': [],
         'organization': []
     });
 
-    // Safe DOMURL reference
     const DOMURL = typeof window !== 'undefined' ? window.URL || window.webkitURL || window : null;
 
     useEffect(() => {
@@ -163,48 +248,48 @@ export function CanvasParticleBackground(): React.ReactElement {
             canvas.style.width = `${width}px`;
             canvas.style.height = `${height}px`;
 
-            initGrid(width, height);
+            initParticles(width, height);
 
-            // Async preload shape coordinates for current screen size
             if (!shapesCacheRef.current.developer.length) {
-                shapesCacheRef.current.developer = await getShapeCoordinates(DEV_BRACKETS_SVG, width, height, DOMURL, 4);
-                shapesCacheRef.current.organization = await getShapeCoordinates(ORG_BUILDING_SVG, width, height, DOMURL, 4);
+                shapesCacheRef.current.developer = await getShapeCoordinates(DEV_BRACKETS_SVG, width, height, DOMURL, 5, 'left');
+                shapesCacheRef.current.organization = await getShapeCoordinates(ORG_BUILDING_SVG, width, height, DOMURL, 5, 'right');
             }
         };
 
-        const initGrid = (w: number, h: number) => {
+        const initParticles = (w: number, h: number) => {
             const pArray: Particle[] = [];
-            const cols = Math.floor(w / DOT_SPACING) + 2;
-            const rows = Math.floor(h / DOT_SPACING) + 2;
-
-            const offsetX = (w - (cols * DOT_SPACING)) / 2;
-            const offsetY = (h - (rows * DOT_SPACING)) / 2;
-
-            for (let i = 0; i < cols; i++) {
-                for (let j = 0; j < rows; j++) {
-                    const x = i * DOT_SPACING + offsetX;
-                    const y = j * DOT_SPACING + offsetY;
-                    const jitterX = (Math.random() - 0.5) * 8;
-                    const jitterY = (Math.random() - 0.5) * 8;
-                    pArray.push(new Particle(x + jitterX, y + jitterY));
-                }
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                pArray.push(new Particle(w, h));
             }
-            // Shuffle immediately so assigning shapes looks organic
-            particlesRef.current = pArray.sort(() => 0.5 - Math.random());
+            particlesRef.current = pArray;
         };
 
         window.addEventListener('resize', resize);
+
+        const handleMouseMove = (e: MouseEvent) => {
+            mouseRef.current.x = e.clientX;
+            mouseRef.current.y = e.clientY;
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+
         resize();
 
-        const animate = () => {
-            ctx.fillStyle = 'rgba(252, 252, 253, 0.6)'; // Ghosting effect matching background
-            ctx.fillRect(0, 0, width, height);
+        const animate = (time: number) => {
+            ctx.clearRect(0, 0, width, height);
 
             const isHovering = hoverState !== 'default';
             const targetCoords = shapesCacheRef.current[hoverState];
 
-            // Re-assign target coordinates dynamically if hovering a valid shape
+            // Assign nearest particles to target shape
             if (isHovering && targetCoords?.length > 0) {
+                if (!particlesRef.current[0].isShape) {
+                    // Sort briefly to grab closest ones
+                    particlesRef.current.sort((a, b) => {
+                        const da = Math.abs(a.x - (width / 2)) + Math.abs(a.y - (height / 2));
+                        const db = Math.abs(b.x - (width / 2)) + Math.abs(b.y - (height / 2));
+                        return da - db;
+                    });
+                }
                 for (let i = 0; i < particlesRef.current.length; i++) {
                     const p = particlesRef.current[i];
                     if (i < targetCoords.length) {
@@ -220,17 +305,18 @@ export function CanvasParticleBackground(): React.ReactElement {
             }
 
             particlesRef.current.forEach(p => {
-                p.update(isHovering);
+                p.update(time, mouseRef.current.x, mouseRef.current.y, isHovering, width, height);
                 p.draw(ctx, isHovering);
             });
 
             animationRef.current = requestAnimationFrame(animate);
         };
 
-        animate();
+        animationRef.current = requestAnimationFrame(animate);
 
         return () => {
             window.removeEventListener('resize', resize);
+            window.removeEventListener('mousemove', handleMouseMove);
             cancelAnimationFrame(animationRef.current);
         };
     }, [hoverState, DOMURL]);
