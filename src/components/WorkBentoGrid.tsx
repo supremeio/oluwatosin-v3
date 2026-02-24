@@ -2,9 +2,12 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { LinkedText } from '@/components/ui/LinkedText';
+
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 interface WorkItem {
   name: string;
@@ -63,6 +66,8 @@ export function WorkSection(): React.ReactElement {
       <SectionLabel>Work</SectionLabel>
       <div className="flex flex-col gap-[16px] items-start w-full">
         {WORK_ITEMS.map((item) => {
+          const isDimmed = hoveredItem !== null && hoveredItem !== item.name;
+
           const rowContent = (
             <>
               <LinkedText className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary shrink-0">
@@ -75,12 +80,18 @@ export function WorkSection(): React.ReactElement {
             </>
           );
 
+          const rowStyle: React.CSSProperties = {
+            opacity: isDimmed ? 0.5 : 1,
+            transition: 'opacity 0.25s ease',
+          };
+
           if (item.slug) {
             return (
               <Link
                 key={item.name}
                 href={`/case-study/${item.slug}`}
                 className="flex gap-[8px] items-center w-full"
+                style={rowStyle}
                 onMouseEnter={() => handleMouseEnter(item.name)}
                 onMouseLeave={handleMouseLeave}
               >
@@ -93,6 +104,7 @@ export function WorkSection(): React.ReactElement {
             <div
               key={item.name}
               className="flex gap-[8px] items-center w-full"
+              style={rowStyle}
               onMouseEnter={() => handleMouseEnter(item.name)}
               onMouseLeave={handleMouseLeave}
             >
@@ -102,11 +114,20 @@ export function WorkSection(): React.ReactElement {
         })}
       </div>
 
-      {hoveredItem && (
-        <div className="absolute left-full top-0 ml-[44px] hidden md:block">
-          <BentoGrid />
-        </div>
-      )}
+      <AnimatePresence>
+        {hoveredItem && (
+          <motion.div
+            key="bento-preview"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.25, ease: EASE_OUT }}
+            className="absolute left-full top-0 ml-[44px] hidden md:block"
+          >
+            <BentoGrid />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { ArrowTopRightIcon } from '@/components/ui/ArrowTopRightIcon';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { LinkedText } from '@/components/ui/LinkedText';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
+import { AboutPageHeader } from '@/components/AboutPageHeader';
 
 export const metadata: Metadata = {
   title: 'About — Oluwatosin Kazeem',
@@ -56,20 +57,6 @@ function BookIcon(): React.ReactElement {
   );
 }
 
-function PageHeader(): React.ReactElement {
-  return (
-    <header className="flex gap-[40px] items-start w-full">
-      <div className="flex flex-col gap-[4px] items-start w-[261px]">
-        <h1 className="font-figtree font-semibold text-[20px] leading-[normal] text-text-primary">
-          Design. Develop. Gym.{'\n'}Sleep. Repeat.
-        </h1>
-        <p className="font-figtree font-medium text-[16px] leading-[normal] text-text-secondary">
-          That&apos;s all I do.
-        </p>
-      </div>
-    </header>
-  );
-}
 
 function EducationRow(): React.ReactElement {
   return (
@@ -166,7 +153,7 @@ function SocialLinksSection(): React.ReactElement {
 export default function AboutPage(): React.ReactElement {
   return (
     <PageLayout>
-      <PageHeader />
+      <AboutPageHeader />
 
       <div className="mt-[40px] flex flex-col gap-[24px] items-start">
         <EducationRow />

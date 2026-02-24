@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { ChatbotWidget } from '@/components/ChatbotWidget';
 import { FloatingNav } from '@/components/FloatingNav';
 import { ChatbotProvider } from '@/providers/ChatbotProvider';
@@ -15,6 +16,14 @@ interface PageLayoutProps {
 export function PageLayout({ children, beforeMain, hideNav }: PageLayoutProps): React.ReactElement {
   return (
     <div className="relative min-h-screen bg-bg-main overflow-x-hidden">
+      <Image
+        src="/Dot pattern.svg"
+        alt=""
+        width={1432}
+        height={1007}
+        className="fixed top-[40px] left-1/2 -translate-x-1/2 pointer-events-none select-none"
+        aria-hidden
+      />
       {beforeMain}
       <TopActions />
 

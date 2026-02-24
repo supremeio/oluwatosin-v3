@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { useChatbotContext } from '@/providers/ChatbotProvider';
 
 const NAV_ITEMS = [
@@ -20,10 +22,21 @@ const ROUTE_TO_LABEL: Record<string, string> = {
   '/resources': 'Resources',
 };
 
+const PILL_SPRING = { type: 'spring' as const, stiffness: 280, damping: 22, mass: 0.8 };
+
 export function FloatingNav(): React.ReactElement {
   const { isChatOpen, toggleChat, closeChat } = useChatbotContext();
   const pathname = usePathname();
-  const currentPageLabel = ROUTE_TO_LABEL[pathname] ?? 'Home';
+  const [pendingLabel, setPendingLabel] = useState<string | null>(null);
+
+  // Once pathname catches up to the pending destination, clear it
+  useEffect(() => {
+    if (pendingLabel && ROUTE_TO_LABEL[pathname] === pendingLabel) {
+      setPendingLabel(null);
+    }
+  }, [pathname, pendingLabel]);
+
+  const currentPageLabel = pendingLabel ?? ROUTE_TO_LABEL[pathname] ?? 'Home';
 
   return (
     <nav
@@ -42,6 +55,25 @@ export function FloatingNav(): React.ReactElement {
 
           const hasRoute = item.href !== '#';
 
+          const content = (
+            <>
+              {isActive && (
+                <motion.div
+                  layoutId="nav-pill"
+                  className="absolute inset-0 rounded-[40px] bg-bg-on-colour"
+                  transition={PILL_SPRING}
+                />
+              )}
+              <Image
+                src={isActive ? item.activeIcon : item.inactiveIcon}
+                alt=""
+                width={24}
+                height={24}
+                className="relative z-10"
+              />
+            </>
+          );
+
           return (
             <div
               key={item.label}
@@ -51,36 +83,22 @@ export function FloatingNav(): React.ReactElement {
               {hasRoute ? (
                 <Link
                   href={item.href}
-                  onClick={closeChat}
-                  className={`flex items-center justify-center p-[16px] rounded-[40px] ${
-                    isActive ? 'bg-bg-on-colour' : 'bg-bg-main'
-                  }`}
+                  onClick={() => { closeChat(); setPendingLabel(item.label); }}
+                  className="relative flex items-center justify-center p-[16px] rounded-[40px] bg-bg-main"
                   aria-label={item.label}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <Image
-                    src={isActive ? item.activeIcon : item.inactiveIcon}
-                    alt=""
-                    width={24}
-                    height={24}
-                  />
+                  {content}
                 </Link>
               ) : (
                 <button
                   type="button"
                   onClick={item.label === 'Chatbot' ? toggleChat : undefined}
-                  className={`flex items-center justify-center p-[16px] rounded-[40px] ${
-                    isActive ? 'bg-bg-on-colour' : 'bg-bg-main'
-                  }`}
+                  className="relative flex items-center justify-center p-[16px] rounded-[40px] bg-bg-main"
                   aria-label={item.label}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <Image
-                    src={isActive ? item.activeIcon : item.inactiveIcon}
-                    alt=""
-                    width={24}
-                    height={24}
-                  />
+                  {content}
                 </button>
               )}
             </div>
