@@ -372,6 +372,7 @@ export function ChatbotWidget(): React.ReactElement {
   const [state, setState] = useState<ChatbotState>('default');
   const [isHovering, setIsHovering] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [keyboardVisibleH, setKeyboardVisibleH] = useState(0);
   const { isChatOpen, openChat, closeChat } = useChatbotContext();
 
   const showExpanded = isHovering && state === 'default';
@@ -384,28 +385,35 @@ export function ChatbotWidget(): React.ReactElement {
     if (typeof window === 'undefined') return;
     const vv = window.visualViewport;
 
-    const getOffset = () => {
-      if (!vv) return 0;
+    const applyOffset = () => {
+      if (!vv) return;
       const offset = window.innerHeight - vv.height;
-      return offset > 50 ? offset : 0;
+      if (offset > 50) {
+        setKeyboardOffset(offset);
+        setKeyboardVisibleH(vv.height);
+      } else {
+        setKeyboardOffset(0);
+        setKeyboardVisibleH(0);
+      }
     };
 
     const onVVResize = () => {
-      if (window.innerWidth >= 768) { setKeyboardOffset(0); return; }
-      setKeyboardOffset(getOffset());
+      if (window.innerWidth >= 768) { setKeyboardOffset(0); setKeyboardVisibleH(0); return; }
+      applyOffset();
     };
 
     const onFocusIn = (e: FocusEvent) => {
       if (window.innerWidth >= 768) return;
       if (!(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement)) return;
       // Delay lets the iOS keyboard finish animating before we read viewport height
-      setTimeout(() => setKeyboardOffset(getOffset()), 350);
+      setTimeout(applyOffset, 350);
     };
 
     const onFocusOut = (e: FocusEvent) => {
       if (window.innerWidth >= 768) return;
       if (!(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement)) return;
       setKeyboardOffset(0);
+      setKeyboardVisibleH(0);
     };
 
     vv?.addEventListener('resize', onVVResize);
@@ -439,7 +447,8 @@ export function ChatbotWidget(): React.ReactElement {
   const handleClose = useCallback(() => {
     setState('default');
     setIsHovering(false);
-    setKeyboardOffset(0); // clear on close
+    setKeyboardOffset(0);
+    setKeyboardVisibleH(0);
   }, []);
   const handleStartChat = useCallback(() => setState('chat'), []);
   const handleOpenMenu = useCallback(() => setState('menu'), []);
@@ -473,9 +482,13 @@ export function ChatbotWidget(): React.ReactElement {
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         style={{
-          // Push the widget up above the keyboard. Height stays fixed (no top
-          // anchor), so the widget slides up as a unit without shrinking.
+          // Push the widget up above the keyboard and cap its height so it
+          // never overflows the top of the screen. keyboardVisibleH is the
+          // visual viewport height when the keyboard is open; subtracting 40px
+          // (16px gap + 24px breathing room at the top) guarantees the widget
+          // fits entirely within the visible area.
           bottom: keyboardOffset > 0 ? `${keyboardOffset + 16}px` : undefined,
+          maxHeight: keyboardOffset > 0 ? `${keyboardVisibleH - 40}px` : undefined,
           transition: 'bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
