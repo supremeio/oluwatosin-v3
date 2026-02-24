@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
 import { SectionLabel } from '@/components/ui/SectionLabel';
@@ -24,14 +24,6 @@ const WORK_ITEMS: WorkItem[] = [
 
 export function WorkSection(): React.ReactElement {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-
-  const handleMouseEnter = useCallback((name: string) => {
-    setHoveredItem(name);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setHoveredItem(null);
-  }, []);
 
   return (
     <section className="flex flex-col gap-[16px] items-start">
@@ -64,8 +56,8 @@ export function WorkSection(): React.ReactElement {
                 href={`/case-study/${item.slug}`}
                 className="flex gap-[8px] items-center w-full py-[8px]"
                 style={rowStyle}
-                onMouseEnter={() => handleMouseEnter(item.name)}
-                onMouseLeave={handleMouseLeave}
+                onMouseEnter={() => setHoveredItem(item.name)}
+                onMouseLeave={() => setHoveredItem(null)}
               >
                 {rowContent}
               </Link>
@@ -77,8 +69,8 @@ export function WorkSection(): React.ReactElement {
               key={item.name}
               className="flex gap-[8px] items-center w-full py-[8px]"
               style={rowStyle}
-              onMouseEnter={() => handleMouseEnter(item.name)}
-              onMouseLeave={handleMouseLeave}
+              onMouseEnter={() => setHoveredItem(item.name)}
+              onMouseLeave={() => setHoveredItem(null)}
             >
               {rowContent}
             </div>

@@ -9,8 +9,8 @@ const DOT_R         = 0.75;   // Ambient: 1.5 px diameter
 const SHAPE_DOT_R   = 1.0;    // Shape mode: 2 px diameter
 
 // Resting physics — soft spring so particles feel like they float
-const REST_K        = 0.038;
-const REST_DAMP     = 0.86;
+const REST_K        = 0.016;
+const REST_DAMP     = 0.92;
 
 // Shape-forming physics — elastic pull
 const SHAPE_K       = 0.072;
@@ -49,12 +49,10 @@ const SLOW_DURATION  = 27800;
 
 const TEXT_APPEAR_AT = OUTLINE_SPREAD;
 
-// Vertical centre of both shapes (fraction of viewport height)
-const SHAPE_CY      = 0.46;
+// Zone anchor margins (px)
+const ZONE_TOP_MARGIN    = 80;   // left emoji: top edge 80px from top
+const ZONE_BOTTOM_MARGIN = 120;  // right emoji: bottom edge 120px from bottom
 
-// Zone trigger thresholds (cursor x / W)
-const ZONE_L_MAX    = 0.36;
-const ZONE_R_MIN    = 0.64;
 
 const LS_KEY = 'portfolio-emoji';
 
@@ -172,6 +170,23 @@ function poissonDisc(w: number, h: number, r: number): { x: number; y: number }[
   return pts;
 }
 
+// ─── Shared repulsion force ────────────────────────────────────────────────────
+function addRepulsion(
+  gx: number, gy: number,
+  px: number, py: number,
+  mx: number, my: number,
+  cvSpeed: number,
+): [number, number] {
+  if (mx < 0) return [gx, gy];
+  const dx = px - mx, dy = py - my;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= REPEL_R * REPEL_R || d2 === 0) return [gx, gy];
+  const d  = Math.sqrt(d2);
+  const nt = 1 - d / REPEL_R;
+  const f  = nt * nt * nt * REPEL_MAX * (1 + cvSpeed * SPEED_SCALE);
+  return [gx + (dx / d) * f, gy + (dy / d) * f];
+}
+
 // ─── Particle ──────────────────────────────────────────────────────────────────
 class Particle {
   x:  number; y:  number;
@@ -194,11 +209,10 @@ class Particle {
   }
 
   update(
-    t: number,
+    now: number,
     zoneActivatedAtMap: Partial<Record<NonNullable<Zone>, number>>,
     mx: number, my: number,
     cvSpeed: number,
-    now: number,
   ) {
     let inShape = false;
     let eased   = 0;
@@ -223,38 +237,16 @@ class Particle {
       k    = REST_K    + (SHAPE_K    - REST_K)    * eased;
       damp = REST_DAMP + (SHAPE_DAMP - REST_DAMP) * eased;
 
-      // Repel settled shape particles so the emoji reacts to the cursor
-      if (eased >= 1 && mx >= 0) {
-        const dx = this.x - mx, dy = this.y - my;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < REPEL_R * REPEL_R && d2 > 0) {
-          const d  = Math.sqrt(d2);
-          const nt = 1 - d / REPEL_R;
-          const f  = nt * nt * nt * REPEL_MAX * (1 + cvSpeed * SPEED_SCALE);
-          gx += (dx / d) * f;
-          gy += (dy / d) * f;
-        }
-      }
+      if (eased >= 1) [gx, gy] = addRepulsion(gx, gy, this.x, this.y, mx, my, cvSpeed);
     } else {
       gx = this.ox
-        + Math.sin(t * DRIFT_FREQ  + this.sx)  * DRIFT_AMP
-        + Math.sin(t * DRIFT_FREQ2 + this.sx2) * DRIFT_AMP2;
+        + Math.sin(now * DRIFT_FREQ  + this.sx)  * DRIFT_AMP
+        + Math.sin(now * DRIFT_FREQ2 + this.sx2) * DRIFT_AMP2;
       gy = this.oy
-        + Math.cos(t * DRIFT_FREQ  + this.sy)  * DRIFT_AMP
-        + Math.cos(t * DRIFT_FREQ2 + this.sy2) * DRIFT_AMP2;
+        + Math.cos(now * DRIFT_FREQ  + this.sy)  * DRIFT_AMP
+        + Math.cos(now * DRIFT_FREQ2 + this.sy2) * DRIFT_AMP2;
 
-      if (mx >= 0) {
-        const dx = this.x - mx, dy = this.y - my;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < REPEL_R * REPEL_R && d2 > 0) {
-          const d  = Math.sqrt(d2);
-          const nt = 1 - d / REPEL_R;
-          const f  = nt * nt * nt * REPEL_MAX * (1 + cvSpeed * SPEED_SCALE);
-          gx += (dx / d) * f;
-          gy += (dy / d) * f;
-        }
-      }
-
+      [gx, gy] = addRepulsion(gx, gy, this.x, this.y, mx, my, cvSpeed);
       k = REST_K; damp = REST_DAMP;
     }
 
@@ -520,8 +512,7 @@ export function CanvasParticleBackground() {
       }
       lastMt = now; mx = e.clientX; my = e.clientY;
       if (W >= 768) {
-        const frac = mx / W;
-        activeZone = frac < ZONE_L_MAX ? 'dev' : frac > ZONE_R_MIN ? 'org' : null;
+        activeZone = mx < colL ? 'dev' : mx > colR ? 'org' : null;
       } else {
         activeZone = null;
       }
@@ -565,7 +556,9 @@ export function CanvasParticleBackground() {
       zonePts[zone]   = pts;
 
       const cx = zone === 'dev' ? leftCX : rightCX;
-      const cy = H * SHAPE_CY;
+      const cy = zone === 'dev'
+        ? ZONE_TOP_MARGIN - pts.topY          // top edge of emoji at ZONE_TOP_MARGIN
+        : H - ZONE_BOTTOM_MARGIN - pts.bottomY; // bottom edge at H - ZONE_BOTTOM_MARGIN
 
       // Notify React overlay
       onZoneActivateRef.current({
@@ -680,8 +673,10 @@ export function CanvasParticleBackground() {
             // Returning to an already-active saved zone — re-notify React
             const pts = zonePts[activeZone];
             const cx  = activeZone === 'dev' ? leftCX : rightCX;
-            const cy  = H * SHAPE_CY;
             if (pts && zoneEmoji[activeZone]) {
+              const cy = activeZone === 'dev'
+                ? ZONE_TOP_MARGIN - pts.topY
+                : H - ZONE_BOTTOM_MARGIN - pts.bottomY;
               onZoneActivateRef.current({
                 zone: activeZone, cx, cy,
                 topY:    pts.topY,
@@ -721,11 +716,11 @@ export function CanvasParticleBackground() {
 
         // ── Physics update ──────────────────────────────────────────────
         for (const p of particles) {
-          p.update(now, zoneActivatedAtMap, mx, my, cvSpeed, now);
+          p.update(now, zoneActivatedAtMap, mx, my, cvSpeed);
         }
 
         // ── Pass 1: ambient dots ────────────────────────────────────────
-        ctx!.fillStyle = dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+        ctx!.fillStyle = dark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.5)';
         ctx!.beginPath();
         for (const p of particles) {
           if (!isShapeParticle(p)) p.draw(ctx!, DOT_R);
@@ -759,7 +754,7 @@ export function CanvasParticleBackground() {
         // Draws a bg-coloured gradient over the particles at the inner
         // edges of each margin so they blend into the content column
         // rather than cutting off sharply.
-        const FADE_W  = 64;
+        const FADE_W  = 120;
         const bgRGB   = dark ? '15,15,15' : '255,255,255';
         const transp  = `rgba(${bgRGB},0)`;
         const opaque  = `rgba(${bgRGB},1)`;
@@ -812,16 +807,18 @@ export function CanvasParticleBackground() {
         const hoverMode = hoverModeMap[zone] ?? 'save';
         const isSaved   = !!savedEmojis[zone];
 
-        // Label sits 40 px above the emoji's top edge, centred on the shape
+        // Both zones: label below the emoji, centred on cx.
         const btnLeft = info.cx;
-        const btnTop  = info.cy + info.topY - 40;
+        const btnTop  = zone === 'dev'
+          ? info.cy + info.bottomY + 56   // 56px below the left emoji's bottom edge
+          : info.cy + info.bottomY + 40;  // 40px below the right emoji's bottom edge
 
         const labelStyle: React.CSSProperties = {
           position:     'fixed',
           zIndex:        2,
           left:          btnLeft,
           top:           btnTop,
-          transform:    'translateX(-50%) translateY(-100%)',
+          transform:    'translateX(-50%)',
           display:      'flex',
           alignItems:   'center',
           gap:          '6px',
