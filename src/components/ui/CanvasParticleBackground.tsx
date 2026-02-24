@@ -222,6 +222,19 @@ class Particle {
       gx   = this.tx; gy   = this.ty;
       k    = REST_K    + (SHAPE_K    - REST_K)    * eased;
       damp = REST_DAMP + (SHAPE_DAMP - REST_DAMP) * eased;
+
+      // Repel settled shape particles so the emoji reacts to the cursor
+      if (eased >= 1 && mx >= 0) {
+        const dx = this.x - mx, dy = this.y - my;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < REPEL_R * REPEL_R && d2 > 0) {
+          const d  = Math.sqrt(d2);
+          const nt = 1 - d / REPEL_R;
+          const f  = nt * nt * nt * REPEL_MAX * (1 + cvSpeed * SPEED_SCALE);
+          gx += (dx / d) * f;
+          gy += (dy / d) * f;
+        }
+      }
     } else {
       gx = this.ox
         + Math.sin(t * DRIFT_FREQ  + this.sx)  * DRIFT_AMP
