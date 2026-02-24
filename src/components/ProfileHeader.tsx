@@ -19,7 +19,7 @@ export function ProfileHeader(): React.ReactElement {
 
   return (
     <header className="flex flex-col gap-[4px] items-start">
-      <h1 className="font-figtree font-semibold text-[16px] leading-[24px] uppercase text-text-primary">
+      <h1 className="font-figtree font-bold text-[20px] leading-[24px] uppercase text-text-primary">
         Oluwatosin Kazeem
       </h1>
       <div className="overflow-hidden h-[18px]">

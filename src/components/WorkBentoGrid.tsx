@@ -66,8 +66,6 @@ export function WorkSection(): React.ReactElement {
       <SectionLabel>Work</SectionLabel>
       <div className="flex flex-col gap-[16px] items-start w-full">
         {WORK_ITEMS.map((item) => {
-          const isDimmed = hoveredItem !== null && hoveredItem !== item.name;
-
           const rowContent = (
             <>
               <LinkedText className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary shrink-0">
@@ -80,18 +78,12 @@ export function WorkSection(): React.ReactElement {
             </>
           );
 
-          const rowStyle: React.CSSProperties = {
-            opacity: isDimmed ? 0.5 : 1,
-            transition: 'opacity 0.25s ease',
-          };
-
           if (item.slug) {
             return (
               <Link
                 key={item.name}
                 href={`/case-study/${item.slug}`}
                 className="flex gap-[8px] items-center w-full"
-                style={rowStyle}
                 onMouseEnter={() => handleMouseEnter(item.name)}
                 onMouseLeave={handleMouseLeave}
               >
@@ -104,7 +96,6 @@ export function WorkSection(): React.ReactElement {
             <div
               key={item.name}
               className="flex gap-[8px] items-center w-full"
-              style={rowStyle}
               onMouseEnter={() => handleMouseEnter(item.name)}
               onMouseLeave={handleMouseLeave}
             >
