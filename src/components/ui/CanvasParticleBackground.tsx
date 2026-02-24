@@ -5,18 +5,19 @@ import { useBackground, HoverState } from '@/providers/BackgroundProvider';
 import { simplex2 } from '@/utils/noise';
 
 // Physics Configuration
-const DOT_SIZE = 1.5;
-const AMBIENT_COLOR = '#00000030';
-const ACTIVE_COLOR = '#4169FF';
+const PARTICLE_COUNT = 4500; // Strict requirement: 4000 - 5000
+const DOT_SIZE = 1.75; // Between 1.5px and 2px
+const AMBIENT_COLOR = 'rgba(26, 115, 232, 0.6)'; // Deep indigo
+const ACTIVE_COLOR = 'rgba(26, 115, 232, 0.9)'; // Brighter indigo for shapes
 
-// Forces
-const NOISE_SCALE = 0.003;
-const NOISE_SPEED = 0.0003;
-const MAGNETIC_RADIUS = 150;
-const MAGNETIC_FORCE = 0.03;
-const SPRING_FACTOR = 0.08;
-const SHAPE_SPRING = 0.05;
-const FRICTION = 0.88;
+// Reynolds Steering Forces
+const MAX_SPEED = 2.0;
+const MAX_FORCE = 0.05;
+const NOISE_SCALE = 0.002;
+const NOISE_SPEED = 0.0002;
+
+// Magnetic Attractor
+const ATTRACTOR_RADIUS = 200;
 
 class Particle {
     x: number;
@@ -33,17 +34,51 @@ class Particle {
     targetY: number | null = null;
     isShape: boolean = false;
 
-    // Kinetic juice variables
+    // Brownian motion & juice
     seed: number;
-    wobbleSpeed: number;
+    brownianSpeed: number;
+    // Trail history for liquid momentum
+    history: { x: number, y: number }[] = [];
 
-    constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
+    constructor(w: number, h: number) {
+        this.x = Math.random() * w;
+        this.y = Math.random() * h;
         this.baseX = this.x;
         this.baseY = this.y;
         this.seed = Math.random() * 1000;
-        this.wobbleSpeed = 0.1 + Math.random() * 0.1;
+        this.brownianSpeed = 0.05 + Math.random() * 0.05;
+    }
+
+    // Craig Reynolds' "Seek and Arrive" Behavior
+    steer(targetX: number, targetY: number, slowingRadius: number, overrideMaxSpeed?: number, overrideMaxForce?: number) {
+        const ds = overrideMaxSpeed || MAX_SPEED;
+        const df = overrideMaxForce || MAX_FORCE;
+
+        const desiredX = targetX - this.x;
+        const desiredY = targetY - this.y;
+        const dist = Math.sqrt(desiredX * desiredX + desiredY * desiredY);
+
+        if (dist === 0) return { x: 0, y: 0 };
+
+        let mappedSpeed = ds;
+        if (dist < slowingRadius) {
+            mappedSpeed = (dist / slowingRadius) * ds; // Arrive behavior
+        }
+
+        const normX = (desiredX / dist) * mappedSpeed;
+        const normY = (desiredY / dist) * mappedSpeed;
+
+        let steerX = normX - this.vx;
+        let steerY = normY - this.vy;
+
+        // Limit steering force
+        const steerDist = Math.sqrt(steerX * steerX + steerY * steerY);
+        if (steerDist > df) {
+            steerX = (steerX / steerDist) * df;
+            steerY = (steerY / steerDist) * df;
+        }
+
+        return { x: steerX, y: steerY };
     }
 
     update(
@@ -57,102 +92,99 @@ class Particle {
         let fx = 0;
         let fy = 0;
 
-        // 1. Morphing Geometry Force (Swarming)
+        // 1. Morphing Geometry (Target-Seeking)
         if (isHoveringShape && this.isShape && this.targetX !== null && this.targetY !== null) {
-            // Kinetic Wobble when resting in shape
-            const wobbleX = Math.sin(time * this.wobbleSpeed + this.seed) * 2;
-            const wobbleY = Math.cos(time * this.wobbleSpeed + this.seed) * 2;
+            // Brownian Motion jitter (low amplitude)
+            const brownianX = (simplex2(this.x + time * this.brownianSpeed, this.seed) * 2.5);
+            const brownianY = (simplex2(this.seed - time * this.brownianSpeed, this.y) * 2.5);
 
-            const dxTarget = (this.targetX + wobbleX) - this.x;
-            const dyTarget = (this.targetY + wobbleY) - this.y;
+            const targetPos = {
+                x: this.targetX + brownianX,
+                y: this.targetY + brownianY
+            };
 
-            fx += dxTarget * SHAPE_SPRING;
-            fy += dyTarget * SHAPE_SPRING;
-
-            // Elastic cursor poke detection
-            const dxMouse = mouseX - this.x;
-            const dyMouse = mouseY - this.y;
-            const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
-
-            if (distMouse < 60) {
-                // Run away elastically
-                const force = (60 - distMouse) * 0.05;
-                fx -= (dxMouse / distMouse) * force;
-                fy -= (dyMouse / distMouse) * force;
-            }
+            // Push incredibly fast towards shape, arrive gently
+            const force = this.steer(targetPos.x, targetPos.y, 50, MAX_SPEED * 3, MAX_FORCE * 2);
+            fx += force.x;
+            fy += force.y;
         }
-        // 2. Ambient Foundation (Noise Drift)
+        // 2. Ambient State & Cursor Attractor
         else {
-            // Fluid noise field
+            // A. Ambient Noise Flow
             const angle = simplex2(this.x * NOISE_SCALE, this.y * NOISE_SCALE + time * NOISE_SPEED) * Math.PI * 2;
-            fx += Math.cos(angle) * 0.3;
-            fy += Math.sin(angle) * 0.3;
+            // Floaty, liquid-like momentum
+            const noiseForceX = Math.cos(angle) * 0.02;
+            const noiseForceY = Math.sin(angle) * 0.02;
+            fx += noiseForceX;
+            fy += noiseForceY;
 
-            // Gentle spring back to origin bounded region so they don't all cluster over time
-            const dxBase = this.baseX - this.x;
-            const dyBase = this.baseY - this.y;
-            fx += dxBase * 0.0005;
-            fy += dyBase * 0.0005;
+            // Keep them from totally dispersing out of bounds with a very weak center pull
+            const dxBase = (w / 2) - this.x;
+            const dyBase = (h / 2) - this.y;
+            fx += dxBase * 0.00001;
+            fy += dyBase * 0.00001;
 
-            // 3. Magnetic Interaction
+            // B. Attractor State (Magnetic Cursor)
             if (mouseX !== -1 && mouseY !== -1 && !isHoveringShape) {
                 const dxMouse = mouseX - this.x;
                 const dyMouse = mouseY - this.y;
                 const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
 
-                if (distMouse < MAGNETIC_RADIUS) {
-                    const force = (MAGNETIC_RADIUS - distMouse) / MAGNETIC_RADIUS * MAGNETIC_FORCE;
-                    fx += dxMouse * force;
-                    fy += dyMouse * force;
+                if (distMouse < ATTRACTOR_RADIUS) {
+                    // Extremely aggressive magnetic pull, soft arrive
+                    const cursorForce = this.steer(mouseX, mouseY, 100, MAX_SPEED * 2.5, MAX_FORCE * 4);
+                    fx += cursorForce.x;
+                    fy += cursorForce.y;
                 }
             }
         }
 
-        // Apply forces
+        // Apply Acceleration (low linear damping)
         this.vx += fx;
         this.vy += fy;
-        this.vx *= FRICTION;
-        this.vy *= FRICTION;
+
+        // Fluid speed limiting
+        const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        const speedLimit = (isHoveringShape && this.isShape) ? MAX_SPEED * 1.5 : MAX_SPEED;
+        if (currentSpeed > speedLimit) {
+            this.vx = (this.vx / currentSpeed) * speedLimit;
+            this.vy = (this.vy / currentSpeed) * speedLimit;
+        }
+
+        // Low linear damping for ambient liquid momentum
+        if (!isHoveringShape || !this.isShape) {
+            this.vx *= 0.98;
+            this.vy *= 0.98;
+        } else {
+            this.vx *= 0.92; // More friction in shapes to prevent infinite orbiting
+            this.vy *= 0.92;
+        }
 
         this.x += this.vx;
         this.y += this.vy;
 
-        // Wrap around gracefully if drifting offscreen
+        // Organic bounds wrapping (don't teleport, just slide out and come back)
         if (!isHoveringShape) {
-            if (this.x < 0) { this.x = w; this.baseX = w; }
-            if (this.x > w) { this.x = 0; this.baseX = 0; }
-            if (this.y < 0) { this.y = h; this.baseY = h; }
-            if (this.y > h) { this.y = 0; this.baseY = 0; }
+            if (this.x < -50) this.x = w + 50;
+            if (this.x > w + 50) this.x = -50;
+            if (this.y < -50) this.y = h + 50;
+            if (this.y > h + 50) this.y = -50;
         }
     }
 
     draw(ctx: CanvasRenderingContext2D, isHoveringShape: boolean) {
         let color = AMBIENT_COLOR;
         let size = DOT_SIZE;
-        let alpha = 1;
 
         if (isHoveringShape) {
             if (this.isShape) {
                 color = ACTIVE_COLOR;
                 size = DOT_SIZE * 1.5;
-                ctx.globalAlpha = 1;
-                ctx.fillStyle = color;
-                // Shapes look slightly better rounded, but rect is faster. Doing slight exception for active shapes
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, size / 2, 0, Math.PI * 2);
-                ctx.fill();
-                return;
-            } else {
-                color = AMBIENT_COLOR;
-                alpha = 0.2; // Dim background stars
             }
         }
 
-        ctx.globalAlpha = alpha;
         ctx.fillStyle = color;
-        // Massive performance gain drawing a rectangle instead of an arc for tiny distant dots
-        ctx.fillRect(this.x - size / 2, this.y - size / 2, size, size);
-        ctx.globalAlpha = 1; // Reset
+        ctx.fillRect(this.x, this.y, size, size);
     }
 }
 
@@ -263,9 +295,9 @@ export function CanvasParticleBackground(): React.ReactElement {
 
         const initParticles = (w: number, h: number) => {
             const pArray: Particle[] = [];
-            // Calculate dense coverage: roughly 1 particle per 400 pixels of area
-            // Cap at 8000 to maintain 60fps on average machines
-            const particleCount = Math.min(8000, Math.floor((w * h) / 400));
+            // Calculate dense coverage based on screen area, but strictly lock
+            // the total count between 4000 and 5000 as requested by the prompt.
+            const particleCount = Math.max(4000, Math.min(5000, Math.floor((w * h) / 400)));
             for (let i = 0; i < particleCount; i++) {
                 pArray.push(new Particle(w, h));
             }
