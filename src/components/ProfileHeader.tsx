@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LinkedText } from '@/components/ui/LinkedText';
-import { ScrambleText } from '@/components/ui/ScrambleText';
 
 const TITLES = ['PRODUCT DESIGNER', 'DESIGN ENGINEER'] as const;
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
@@ -21,7 +20,7 @@ export function ProfileHeader(): React.ReactElement {
   return (
     <header className="flex flex-col gap-[4px] items-start">
       <h1 className="font-figtree font-semibold text-[20px] leading-[24px] text-text-primary">
-        <ScrambleText text="Oluwatosin Kazeem" />
+        Oluwatosin Kazeem
       </h1>
       <div className="overflow-hidden h-[18px]">
         <AnimatePresence mode="wait" initial={false}>
