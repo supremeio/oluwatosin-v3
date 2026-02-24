@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
@@ -15,19 +16,16 @@ interface WorkItem {
   slug?: string;
 }
 
-const WORK_ITEMS: WorkItem[] = [
-  { name: 'Autospend', years: '2024-2025', slug: 'autospend' },
-  { name: 'CollectAfrica', years: '2023-2024', slug: 'collectafrica' },
-  { name: 'ClaraWave', years: '2025', slug: 'clarawave' },
-  { name: 'Bonadocs', years: '2023-2024' },
-  { name: 'PHPSandbox', years: '2021-2023', slug: 'phpsandbox' },
-  { name: 'Sandbox', years: '2021-2023' },
-  { name: 'SendpackAfrica', years: '2021-2023', slug: 'sendpackafrica' },
-];
-
 function BentoCard({ className }: { className?: string }): React.ReactElement {
   return (
-    <div className={`rounded-[20px] border border-border-primary bg-bg-main ${className ?? ''}`} />
+    <div className={`relative rounded-[20px] border border-border-primary overflow-hidden ${className ?? ''}`}>
+      <Image
+        src="/Empty state image.svg"
+        alt=""
+        fill
+        className="object-cover"
+      />
+    </div>
   );
 }
 
@@ -49,6 +47,17 @@ function BentoGrid(): React.ReactElement {
     </div>
   );
 }
+
+const WORK_ITEMS: WorkItem[] = [
+  { name: 'Autospend', years: '2024-2025', slug: 'autospend' },
+  { name: 'CollectAfrica', years: '2023-2024', slug: 'collectafrica' },
+  { name: 'ClaraWave', years: '2025', slug: 'clarawave' },
+  { name: 'Bonadocs', years: '2023-2024' },
+  { name: 'PHPSandbox', years: '2021-2023', slug: 'phpsandbox' },
+  { name: 'Sandbox', years: '2021-2023' },
+  { name: 'SendpackAfrica', years: '2021-2023', slug: 'sendpackafrica' },
+];
+
 
 export function WorkSection(): React.ReactElement {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
