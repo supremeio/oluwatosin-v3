@@ -110,7 +110,14 @@ function MyProcessSection(): React.ReactElement {
           src="/my process - light.svg"
           alt="Non-linear design process: Understand, Define, Sketch, Wireframe, Design & Iteration, Test & Refine"
           fill
-          className="object-contain"
+          className="object-contain theme-light-only"
+          sizes="(min-width: 768px) 580px, 100vw"
+        />
+        <Image
+          src="/my process - dark.svg"
+          alt="Non-linear design process: Understand, Define, Sketch, Wireframe, Design & Iteration, Test & Refine"
+          fill
+          className="object-contain theme-dark-only"
           sizes="(min-width: 768px) 580px, 100vw"
         />
       </div>

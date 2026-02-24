@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Figtree, Sora, Kode_Mono } from 'next/font/google';
+import Script from 'next/script';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import './globals.css';
 
 const figtree = Figtree({
@@ -40,11 +42,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>): React.ReactElement {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${figtree.variable} ${sora.variable} ${kodeMono.variable} min-h-screen antialiased`}
       >
-        {children}
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
+          }}
+        />
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

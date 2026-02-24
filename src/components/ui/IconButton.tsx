@@ -1,7 +1,7 @@
 interface IconButtonProps {
   children: React.ReactNode;
   label: string;
-  onClick?: () => void;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
 export function IconButton({ children, label, onClick }: IconButtonProps): React.ReactElement {

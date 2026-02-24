@@ -34,53 +34,25 @@ const SOCIAL_LINKS = [
   { name: 'Medium', href: '#' },
 ] as const;
 
-function BookIcon(): React.ReactElement {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="shrink-0" aria-hidden>
-      <path
-        d="M3.5 18V7C3.5 3 4.5 2 8.5 2H15.5C19.5 2 20.5 3 20.5 7V17C20.5 17.14 20.5 17.28 20.49 17.42"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6.35 15H20.5V18.5C20.5 20.43 18.93 22 17 22H7C5.07 22 3.5 20.43 3.5 18.5V18.5C3.5 16.57 4.42 15 6.35 15Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M8 7H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M8 10.5H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 
 function EducationRow(): React.ReactElement {
   return (
-    <div className="group flex gap-[8px] items-center p-[12px] rounded-[12px] bg-bg-secondary w-full">
-      <BookIcon />
-      <div className="flex flex-1 min-w-0 flex-col gap-[8px] md:flex-row md:items-center">
-        <div className="flex gap-[8px] items-center shrink-0">
-          <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px]">
-            Master&apos;s in digital design
-          </span>
-          <div className="flex gap-[4px] items-center">
-            <span className="font-figtree font-medium text-[14px] leading-[24px] text-text-secondary opacity-80">
-              HvA
-            </span>
-            <ArrowTopRightIcon />
-          </div>
-        </div>
-        <div className="hidden md:flex flex-1 min-w-0">
-          <DottedSeparator />
-        </div>
-        <span className="font-figtree font-medium text-[15px] leading-[25.6px] text-text-primary whitespace-nowrap shrink-0">
-          2025 - Present
+    <div className="group flex gap-[8px] items-center w-full">
+      <div className="flex gap-[8px] items-center min-w-0 md:shrink-0">
+        <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px] whitespace-nowrap">
+          Master&apos;s in digital design
         </span>
+        <div className="flex gap-[4px] items-center shrink-0">
+          <span className="font-figtree font-medium text-[14px] leading-[24px] text-text-secondary opacity-80 whitespace-nowrap">
+            HvA
+          </span>
+          <ArrowTopRightIcon />
+        </div>
       </div>
+      <DottedSeparator />
+      <span className="font-figtree font-medium text-[15px] leading-[25.6px] text-text-primary text-right whitespace-nowrap shrink-0">
+        2025 - Present
+      </span>
     </div>
   );
 }
@@ -100,15 +72,17 @@ function EmptyStateImage(): React.ReactElement {
 function ExperienceRow({ experience }: { experience: Experience }): React.ReactElement {
   return (
     <div className="group flex gap-[8px] items-center w-full">
-      <div className="flex gap-[8px] items-center min-w-0 md:shrink-0">
-        <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px] whitespace-nowrap">
+      <div className="flex gap-[8px] items-center min-w-0">
+        <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px] truncate">
           {experience.title}
         </span>
-        <div className="flex gap-[4px] items-center shrink-0">
+        <div className="relative flex items-center shrink-0">
           <span className="font-figtree font-medium text-[14px] leading-[24px] text-text-secondary opacity-80 whitespace-nowrap">
             {experience.company}
           </span>
-          <ArrowTopRightIcon />
+          <div className="absolute left-full pl-[4px]">
+            <ArrowTopRightIcon />
+          </div>
         </div>
       </div>
       <DottedSeparator />
@@ -158,7 +132,13 @@ export default function AboutPage(): React.ReactElement {
       <AboutPageHeader />
 
       <div className="mt-[40px] flex flex-col gap-[24px] items-start">
-        <EducationRow />
+        <div className="flex flex-col w-full">
+          <div className="border-b border-border-primary w-full" />
+          <div className="py-[20px]">
+            <EducationRow />
+          </div>
+          <div className="border-b border-border-primary w-full" />
+        </div>
         <p className="font-figtree font-medium text-[15px] leading-[1.5] text-text-primary w-full">
           I&apos;ve been a product designer for over 4 years. I currently work at a company focused
           on business and finance as a senior product designer. Prior to my current company, I

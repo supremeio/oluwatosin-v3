@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 
 interface CaseStudyHeaderProps {
@@ -59,7 +58,9 @@ export function CaseStudyHeader({
         className="hidden md:flex fixed left-[max(16px,calc(50vw_-_394px))] top-[209px] gap-[4px] items-center text-text-primary z-10"
         aria-label="Back to home"
       >
-        <Image src="/Back arrow.svg" alt="" width={24} height={24} className="shrink-0" />
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="shrink-0" aria-hidden>
+          <path d="M4 10H14C15.7239 10 17.3772 10.6848 18.5962 11.9038C19.8152 13.1228 20.5 14.7761 20.5 16.5V18.5M4 10L9 5M4 10L9 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
         <span className="font-figtree font-normal italic text-[16px] leading-normal">Back</span>
       </Link>
 

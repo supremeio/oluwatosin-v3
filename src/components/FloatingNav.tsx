@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useChatbotContext } from '@/providers/ChatbotProvider';
+import { useTheme } from '@/components/ThemeProvider';
 
 const NAV_ITEMS = [
   { label: 'Home', href: '/', activeIcon: '/icons/home-active.svg', inactiveIcon: '/icons/home-inactive.svg' },
@@ -26,6 +27,7 @@ const PILL_SPRING = { type: 'spring' as const, stiffness: 280, damping: 22, mass
 
 export function FloatingNav(): React.ReactElement {
   const { isChatOpen, toggleChat, closeChat } = useChatbotContext();
+  const { theme } = useTheme();
   const pathname = usePathname();
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
 
@@ -69,7 +71,7 @@ export function FloatingNav(): React.ReactElement {
                 alt=""
                 width={24}
                 height={24}
-                className="relative z-10"
+                className={`relative z-10${isActive && theme === 'dark' ? ' invert' : ''}`}
               />
             </>
           );

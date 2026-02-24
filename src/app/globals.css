@@ -38,6 +38,33 @@
     --overlay-local: rgba(0, 0, 0, 0.8);
   }
 
+  [data-theme="dark"] {
+    --bg-main: #0f0f0f;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #1a1a1a;
+    --bg-on-colour: #f3f6f8;
+
+    --text-primary: #f3f6f8;
+    --text-secondary: #94a3b8;
+    --text-on-colour: #0f0f0f;
+
+    --icon-active: #f3f6f8;
+    --icon-inactive: #94a3b8;
+    --icon-on-colour: #0f0f0f;
+
+    --border-primary: #2d2d2d;
+    --border-active: #f3f6f8;
+
+    --overlay-page: rgba(0, 0, 0, 0.85);
+    --overlay-local: rgba(0, 0, 0, 0.85);
+  }
+
+  /* Theme-aware visibility helpers */
+  .theme-light-only { display: block; }
+  .theme-dark-only  { display: none; }
+  [data-theme="dark"] .theme-light-only { display: none; }
+  [data-theme="dark"] .theme-dark-only  { display: block; }
+
   html {
     scroll-behavior: smooth;
   }
@@ -46,5 +73,20 @@
     background-color: var(--bg-main);
     color: var(--text-primary);
     font-family: var(--font-figtree), system-ui, sans-serif;
+  }
+}
+
+/* Theme-switch: circular reveal expanding from the toggle button */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-new(root) {
+    animation: vt-theme-reveal 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes vt-theme-reveal {
+    from { clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 0%)); }
+    to   { clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 0%)); }
   }
 }
