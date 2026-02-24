@@ -2,255 +2,78 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useBackground, HoverState } from '@/providers/BackgroundProvider';
-import { simplex2 } from '@/utils/noise';
 
-// Physics Configuration
-const PARTICLE_COUNT = 4500; // Strict requirement: 4000 - 5000
-const ACTIVE_COLOR = 'rgba(26, 115, 232, 0.9)'; // Brighter indigo for shapes
-
-// Reynolds Steering Forces
-const MAX_SPEED = 2.0;
-const MAX_FORCE = 0.05;
-const NOISE_SCALE = 0.002;
-const NOISE_SPEED = 0.0002;
-
-// Magnetic Attractor
-const ATTRACTOR_RADIUS = 200;
-
-class SpatialGrid {
-    cellSize: number;
-    cols: number;
-    cells: Map<number, Particle[]>;
-
-    constructor(width: number, height: number, cellSize: number) {
-        this.cellSize = cellSize;
-        this.cols = Math.ceil(width / cellSize);
-        this.cells = new Map();
-    }
-
-    clear() {
-        this.cells.clear();
-    }
-
-    insert(p: Particle) {
-        const cx = Math.floor(p.x / this.cellSize);
-        const cy = Math.floor(p.y / this.cellSize);
-        const idx = cx + cy * this.cols;
-        if (!this.cells.has(idx)) {
-            this.cells.set(idx, []);
-        }
-        this.cells.get(idx)!.push(p);
-    }
-
-    queryNearby(x: number, y: number, radius: number): Particle[] {
-        const results: Particle[] = [];
-        const startX = Math.floor((x - radius) / this.cellSize);
-        const endX = Math.floor((x + radius) / this.cellSize);
-        const startY = Math.floor((y - radius) / this.cellSize);
-        const endY = Math.floor((y + radius) / this.cellSize);
-
-        for (let cy = startY; cy <= endY; cy++) {
-            for (let cx = startX; cx <= endX; cx++) {
-                const idx = cx + cy * this.cols;
-                const cell = this.cells.get(idx);
-                if (cell) {
-                    results.push(...cell);
-                }
-            }
-        }
-        return results;
-    }
-}
+// --- Particle Configuration ---
+const DOT_SIZE = 1.25;
+const DOT_SPACING = 24;
+const DOT_COLOR = '#202124';
+const SPRING_STIFFNESS = 0.12;
+const SPRING_DAMPING = 0.75;
+const AMBIENT_DRIFT_SPEED = 0.0005;
+const AMBIENT_DRIFT_AMP = 3;
 
 class Particle {
     x: number;
     y: number;
+    originX: number;
+    originY: number;
+
+    assignedPath: 'developer' | 'organization' | null = null;
+    targetX: number = 0;
+    targetY: number = 0;
+
     vx: number = 0;
     vy: number = 0;
 
-    // Stippling attributes
-    size: number;
-    baseAlpha: number;
-    colorStr: string;
-
-    // Drift anchors
-    baseX: number;
-    baseY: number;
-
-    // Swarm targets
-    targetX: number | null = null;
-    targetY: number | null = null;
-    isShape: boolean = false;
-
-    // Brownian motion & juice
-    seed: number;
-    brownianSpeed: number;
+    driftSeedX: number;
+    driftSeedY: number;
 
     constructor(x: number, y: number) {
         this.x = x;
         this.y = y;
-        this.baseX = this.x;
-        this.baseY = this.y;
-        this.seed = Math.random() * 1000;
-        this.brownianSpeed = 0.05 + Math.random() * 0.05;
-
-        // Size between 0.5px and 2.5px
-        this.size = 0.5 + Math.random() * 2.0;
-        // Opacity between 0.2 and 0.8 depth
-        this.baseAlpha = 0.2 + Math.random() * 0.6;
-        this.colorStr = `rgba(26, 115, 232, ${this.baseAlpha})`;
+        this.originX = x;
+        this.originY = y;
+        this.driftSeedX = Math.random() * Math.PI * 2;
+        this.driftSeedY = Math.random() * Math.PI * 2;
     }
 
-    // Craig Reynolds' "Seek and Arrive" Behavior
-    steer(targetX: number, targetY: number, slowingRadius: number, overrideMaxSpeed?: number, overrideMaxForce?: number) {
-        const ds = overrideMaxSpeed || MAX_SPEED;
-        const df = overrideMaxForce || MAX_FORCE;
+    update(time: number, isHoveringState: HoverState) {
+        let destX: number;
+        let destY: number;
 
-        const desiredX = targetX - this.x;
-        const desiredY = targetY - this.y;
-        const dist = Math.sqrt(desiredX * desiredX + desiredY * desiredY);
-
-        if (dist === 0) return { x: 0, y: 0 };
-
-        let mappedSpeed = ds;
-        if (dist < slowingRadius) {
-            mappedSpeed = (dist / slowingRadius) * ds; // Arrive behavior
-        }
-
-        const normX = (desiredX / dist) * mappedSpeed;
-        const normY = (desiredY / dist) * mappedSpeed;
-
-        let steerX = normX - this.vx;
-        let steerY = normY - this.vy;
-
-        // Limit steering force
-        const steerDist = Math.sqrt(steerX * steerX + steerY * steerY);
-        if (steerDist > df) {
-            steerX = (steerX / steerDist) * df;
-            steerY = (steerY / steerDist) * df;
-        }
-
-        return { x: steerX, y: steerY };
-    }
-
-    update(
-        time: number,
-        mouseX: number,
-        mouseY: number,
-        isHoveringShape: boolean,
-        w: number,
-        h: number
-    ) {
-        let fx = 0;
-        let fy = 0;
-
-        // 1. Morphing Geometry (Target-Seeking)
-        if (isHoveringShape && this.isShape && this.targetX !== null && this.targetY !== null) {
-            // Brownian Motion jitter (low amplitude)
-            const brownianX = (simplex2(this.x + time * this.brownianSpeed, this.seed) * 2.5);
-            const brownianY = (simplex2(this.seed - time * this.brownianSpeed, this.y) * 2.5);
-
-            const targetPos = {
-                x: this.targetX + brownianX,
-                y: this.targetY + brownianY
-            };
-
-            // Push incredibly fast towards shape, arrive gently
-            const force = this.steer(targetPos.x, targetPos.y, 50, MAX_SPEED * 3, MAX_FORCE * 2);
-            fx += force.x;
-            fy += force.y;
-
-            // Elastic poke (repulsion)
-            if (mouseX !== -1 && mouseY !== -1) {
-                const dxMouse = mouseX - this.x;
-                const dyMouse = mouseY - this.y;
-                const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
-                if (distMouse < 60) {
-                    const repulseForce = (60 - distMouse) * 0.05;
-                    fx -= (dxMouse / distMouse) * repulseForce;
-                    fy -= (dyMouse / distMouse) * repulseForce;
-                }
-            }
-        }
-        // 2. Ambient State
-        else {
-            // A. Ambient Noise Flow
-            const angle = simplex2(this.x * NOISE_SCALE, this.y * NOISE_SCALE + time * NOISE_SPEED) * Math.PI * 2;
-            // Floaty, liquid-like momentum
-            const noiseForceX = Math.cos(angle) * 0.02;
-            const noiseForceY = Math.sin(angle) * 0.02;
-            fx += noiseForceX;
-            fy += noiseForceY;
-
-            // Keep them from totally dispersing out of bounds with a very weak center pull
-            const dxBase = (w / 2) - this.x;
-            const dyBase = (h / 2) - this.y;
-            fx += dxBase * 0.00001;
-            fy += dyBase * 0.00001;
-
-            // B. Attractor State (Magnetic Cursor)
-            if (mouseX !== -1 && mouseY !== -1 && !isHoveringShape) {
-                const dxMouse = mouseX - this.x;
-                const dyMouse = mouseY - this.y;
-                const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
-                if (distMouse < ATTRACTOR_RADIUS) {
-                    const cursorForce = this.steer(mouseX, mouseY, 100, MAX_SPEED * 2.5, MAX_FORCE * 4);
-                    fx += cursorForce.x;
-                    fy += cursorForce.y;
-                }
-            }
-        }
-
-        // Apply Acceleration (low linear damping)
-        this.vx += fx;
-        this.vy += fy;
-
-        // Fluid speed limiting
-        const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        const speedLimit = (isHoveringShape && this.isShape) ? MAX_SPEED * 1.5 : MAX_SPEED;
-        if (currentSpeed > speedLimit) {
-            this.vx = (this.vx / currentSpeed) * speedLimit;
-            this.vy = (this.vy / currentSpeed) * speedLimit;
-        }
-
-        // Low linear damping for ambient liquid momentum
-        if (!isHoveringShape || !this.isShape) {
-            this.vx *= 0.98;
-            this.vy *= 0.98;
+        // Check if we are forming our assigned shape
+        if (isHoveringState !== 'default' && this.assignedPath === isHoveringState) {
+            destX = this.targetX;
+            destY = this.targetY;
         } else {
-            this.vx *= 0.92; // More friction in shapes to prevent infinite orbiting
-            this.vy *= 0.92;
+            // Subtle, constrained microscopic drift
+            destX = this.originX + Math.sin(time * AMBIENT_DRIFT_SPEED + this.driftSeedX) * AMBIENT_DRIFT_AMP;
+            destY = this.originY + Math.cos(time * AMBIENT_DRIFT_SPEED + this.driftSeedY) * AMBIENT_DRIFT_AMP;
         }
+
+        // Tight dampened spring physics
+        const dx = destX - this.x;
+        const dy = destY - this.y;
+
+        this.vx += dx * SPRING_STIFFNESS;
+        this.vy += dy * SPRING_STIFFNESS;
+        this.vx *= SPRING_DAMPING;
+        this.vy *= SPRING_DAMPING;
 
         this.x += this.vx;
         this.y += this.vy;
-
-        // Organic bounds wrapping (don't teleport, just slide out and come back)
-        if (!isHoveringShape) {
-            if (this.x < -50) this.x = w + 50;
-            if (this.x > w + 50) this.x = -50;
-            if (this.y < -50) this.y = h + 50;
-            if (this.y > h + 50) this.y = -50;
-        }
     }
 
-    draw(ctx: CanvasRenderingContext2D, isHoveringShape: boolean) {
-        let color = this.colorStr;
-        let renderSize = this.size;
-
-        if (isHoveringShape) {
-            if (this.isShape) {
-                color = ACTIVE_COLOR;
-                renderSize = this.size * 1.5;
-            }
-        }
-
-        ctx.fillStyle = color;
-        ctx.fillRect(this.x, this.y, renderSize, renderSize);
+    draw(ctx: CanvasRenderingContext2D) {
+        ctx.beginPath();
+        // Round position to avoid anti-aliasing blur, ensuring perfectly crisp 1.25px solid dots.
+        ctx.arc(Math.round(this.x), Math.round(this.y), DOT_SIZE, 0, Math.PI * 2);
+        ctx.fill();
     }
 }
 
-async function getShapeCoordinates(svgString: string, w: number, h: number, DOMURL: typeof window.URL | null, pointDensity: number = 6, offsetDir: 'left' | 'right' | 'center' = 'center'): Promise<{ x: number, y: number }[]> {
+// Generate localized coordinates (-halfSize to +halfSize) by scanning an SVG drawn to an offscreen canvas.
+async function getShapeCoordinates(svgString: string, DOMURL: typeof window.URL | null, pointDensity: number = 8): Promise<{ x: number, y: number }[]> {
     return new Promise((resolve) => {
         if (!DOMURL) return resolve([]);
 
@@ -260,31 +83,25 @@ async function getShapeCoordinates(svgString: string, w: number, h: number, DOMU
 
         img.onload = () => {
             const oc = document.createElement('canvas');
-            const drawSize = 300; // Fixed crisp target size
+            const drawSize = 400; // Hardcoded scaling canvas to match the widescreen zones
             oc.width = drawSize;
             oc.height = drawSize;
             const octx = oc.getContext('2d', { willReadFrequently: true });
             if (!octx) return resolve([]);
 
+            // Draw SVG occupying the full draw size
             octx.drawImage(img, 0, 0, drawSize, drawSize);
             const data32 = new Uint32Array(octx.getImageData(0, 0, drawSize, drawSize).data.buffer);
 
             const coords: { x: number, y: number }[] = [];
+            const halfSize = drawSize / 2;
 
-            let offsetX = (w - drawSize) / 2;
-            let offsetY = (h - drawSize) / 2 - 50;
-
-            if (offsetDir === 'left') offsetX -= w * 0.2;
-            if (offsetDir === 'right') offsetX += w * 0.2;
-
+            // Scan image data at intervals matching desired stipple density
             for (let y = 0; y < drawSize; y += pointDensity) {
                 for (let x = 0; x < drawSize; x += pointDensity) {
                     const alpha = data32[y * drawSize + x] & 0xff000000;
                     if (alpha !== 0) {
-                        coords.push({
-                            x: x + offsetX,
-                            y: y + offsetY
-                        });
+                        coords.push({ x: x - halfSize, y: y - halfSize });
                     }
                 }
             }
@@ -296,33 +113,28 @@ async function getShapeCoordinates(svgString: string, w: number, h: number, DOMU
     });
 }
 
-// Ultra-sharp SVG shapes
 const DEV_BRACKETS_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <path d="M 35 20 Q 20 20 20 35 L 20 45 Q 20 50 10 50 Q 20 50 20 55 L 20 65 Q 20 80 35 80" stroke="black" stroke-width="10" stroke-linecap="round" fill="none"/>
-  <path d="M 65 20 Q 80 20 80 35 L 80 45 Q 80 50 90 50 Q 80 50 80 55 L 80 65 Q 80 80 65 80" stroke="black" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <path d="M 35 15 Q 15 15 15 35 L 15 45 Q 15 50 5 50 Q 15 50 15 55 L 15 65 Q 15 85 35 85" stroke="black" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M 65 15 Q 85 15 85 35 L 85 45 Q 85 50 95 50 Q 85 50 85 55 L 85 65 Q 85 85 65 85" stroke="black" stroke-width="4" stroke-linecap="round" fill="none"/>
 </svg>`;
 
 const ORG_BUILDING_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="30" stroke="black" stroke-width="6" fill="none"/>
-  <circle cx="50" cy="50" r="15" stroke="black" stroke-width="6" fill="none"/>
-  <circle cx="50" cy="50" r="2" fill="black"/>
-  <line x1="20" y1="50" x2="80" y2="50" stroke="black" stroke-width="4"/>
-  <line x1="50" y1="20" x2="50" y2="80" stroke="black" stroke-width="4"/>
+  <circle cx="50" cy="50" r="35" stroke="black" stroke-width="4" fill="none" stroke-dasharray="8 6"/>
+  <circle cx="50" cy="50" r="22" stroke="black" stroke-width="3" fill="none"/>
+  <circle cx="50" cy="50" r="8" stroke="black" stroke-width="3" fill="none"/>
 </svg>`;
 
 export function CanvasParticleBackground(): React.ReactElement {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const { hoverState } = useBackground();
 
+    // Track hover state internally via ref so the animation loop always reads the latest value
+    // without re-firing the entire useEffect and resetting the Grid arrays.
+    const hoverStateRef = useRef<HoverState>(hoverState);
+    hoverStateRef.current = hoverState;
+
     const particlesRef = useRef<Particle[]>([]);
     const animationRef = useRef<number>(0);
-    const mouseRef = useRef({ x: -1, y: -1 });
-
-    const shapesCacheRef = useRef<Record<HoverState, { x: number, y: number }[]>>({
-        'default': [],
-        'developer': [],
-        'organization': []
-    });
 
     const DOMURL = typeof window !== 'undefined' ? window.URL || window.webkitURL || window : null;
 
@@ -337,128 +149,154 @@ export function CanvasParticleBackground(): React.ReactElement {
         let width = window.innerWidth;
         let height = window.innerHeight;
 
-        let grid = new SpatialGrid(width, height, 100);
+        let resizeTimeout: NodeJS.Timeout;
 
-        const resize = async () => {
-            width = window.innerWidth;
-            height = window.innerHeight;
-
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
-            ctx.scale(dpr, dpr);
-            canvas.style.width = `${width}px`;
-            canvas.style.height = `${height}px`;
-
-            grid = new SpatialGrid(width, height, 100);
-
-            initParticles(width, height);
-
-            if (!shapesCacheRef.current.developer.length) {
-                shapesCacheRef.current.developer = await getShapeCoordinates(DEV_BRACKETS_SVG, width, height, DOMURL, 5, 'left');
-                shapesCacheRef.current.organization = await getShapeCoordinates(ORG_BUILDING_SVG, width, height, DOMURL, 5, 'right');
-            }
-        };
-
-        const initParticles = (w: number, h: number) => {
+        const initGrid = async () => {
+            // 1. Generate distributed stippled field (Poison-disk like perturbed grid)
             const pArray: Particle[] = [];
-            // Calculate dense coverage based on screen area, but strictly lock
-            // the total count between 4000 and 5000 as requested by the prompt.
-            const particleCount = Math.max(4000, Math.min(5000, Math.floor((w * h) / 400)));
+            const cols = Math.floor(width / DOT_SPACING) + 2;
+            const rows = Math.floor(height / DOT_SPACING) + 2;
 
-            // Jittered Grid Distribution (Poisson-like)
-            const area = w * h;
-            const cellArea = area / particleCount;
-            const cellSize = Math.sqrt(cellArea);
-            const cols = Math.ceil(w / cellSize);
-            const rows = Math.ceil(h / cellSize);
+            const offsetX = (width - (cols * DOT_SPACING)) / 2;
+            const offsetY = (height - (rows * DOT_SPACING)) / 2;
 
-            for (let y = 0; y < rows; y++) {
-                for (let x = 0; x < cols; x++) {
-                    if (pArray.length >= particleCount) break;
-                    // Jitter placement inside cell to look organic
-                    const jx = (x + 0.1 + Math.random() * 0.8) * cellSize;
-                    const jy = (y + 0.1 + Math.random() * 0.8) * cellSize;
-                    pArray.push(new Particle(jx, jy));
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = i * DOT_SPACING + offsetX;
+                    const y = j * DOT_SPACING + offsetY;
+
+                    // Organic, stippled spacing, avoiding clumped randomness
+                    const jitterAmount = DOT_SPACING * 0.4;
+                    const jitterX = (Math.random() - 0.5) * 2 * jitterAmount;
+                    const jitterY = (Math.random() - 0.5) * 2 * jitterAmount;
+                    pArray.push(new Particle(x + jitterX, y + jitterY));
                 }
             }
+
+            // 2. Parse paths to establish targets for stipple morphing
+            const devPoints = await getShapeCoordinates(DEV_BRACKETS_SVG, DOMURL, 10);
+            const orgPoints = await getShapeCoordinates(ORG_BUILDING_SVG, DOMURL, 10);
+
+            // 3. Spatially assign closest particles to each SVG target
+            // For widescreen, map Dev to 30vw and Org to 70vw, otherwise stack centrally.
+            const isMobile = width < 768;
+            const devCenterX = isMobile ? width * 0.5 : width * 0.3;
+            const orgCenterX = isMobile ? width * 0.5 : width * 0.7;
+            const targetY = height * 0.5;
+
+            devPoints.forEach(pt => {
+                let closest = null;
+                let minDist = Infinity;
+                const globalX = devCenterX + pt.x;
+                const globalY = targetY + pt.y;
+
+                for (let i = 0; i < pArray.length; i++) {
+                    const p = pArray[i];
+                    if (p.assignedPath) continue;
+
+                    const dx = p.originX - globalX;
+                    const dy = p.originY - globalY;
+                    const dist = dx * dx + dy * dy;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closest = p;
+                    }
+                }
+                if (closest) {
+                    closest.assignedPath = 'developer';
+                    closest.targetX = globalX;
+                    closest.targetY = globalY;
+                }
+            });
+
+            orgPoints.forEach(pt => {
+                let closest = null;
+                let minDist = Infinity;
+                const globalX = orgCenterX + pt.x;
+                const globalY = targetY + pt.y;
+
+                for (let i = 0; i < pArray.length; i++) {
+                    const p = pArray[i];
+                    if (p.assignedPath) continue;
+
+                    const dx = p.originX - globalX;
+                    const dy = p.originY - globalY;
+                    const dist = dx * dx + dy * dy;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closest = p;
+                    }
+                }
+                if (closest) {
+                    closest.assignedPath = 'organization';
+                    closest.targetX = globalX;
+                    closest.targetY = globalY;
+                }
+            });
+
             particlesRef.current = pArray;
         };
 
-        window.addEventListener('resize', resize);
-
-        const handleMouseMove = (e: MouseEvent) => {
-            mouseRef.current.x = e.clientX;
-            mouseRef.current.y = e.clientY;
+        const handleResize = () => {
+            // Debounce grid recalculation for continuous resizing
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+                canvas.style.width = `${width}px`;
+                canvas.style.height = `${height}px`;
+                initGrid();
+            }, 150);
         };
-        window.addEventListener('mousemove', handleMouseMove);
 
-        resize();
+        // Trigger initial calculation directly.
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.scale(dpr, dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        initGrid();
 
-        const animate = (time: number) => {
-            ctx.clearRect(0, 0, width, height);
+        window.addEventListener('resize', handleResize);
 
-            const isHovering = hoverState !== 'default';
-            const targetCoords = shapesCacheRef.current[hoverState];
+        const animate = () => {
+            // 4. Instanced pure white background clearing (no blurring, no trailing effects)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
 
-            grid.clear();
-            for (let i = 0; i < particlesRef.current.length; i++) {
-                grid.insert(particlesRef.current[i]);
+            // 5. Crisp, highly stippled dots rendered simultaneously
+            ctx.fillStyle = DOT_COLOR;
+            const time = Date.now();
+            const currentState = hoverStateRef.current;
+
+            const particles = particlesRef.current;
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update(time, currentState);
+                particles[i].draw(ctx);
             }
-
-            // Assign nearest particles to target shape
-            if (isHovering && targetCoords?.length > 0) {
-                if (!particlesRef.current[0].isShape) {
-                    // Sort briefly to grab closest ones
-                    particlesRef.current.sort((a, b) => {
-                        const da = Math.abs(a.x - (width / 2)) + Math.abs(a.y - (height / 2));
-                        const db = Math.abs(b.x - (width / 2)) + Math.abs(b.y - (height / 2));
-                        return da - db;
-                    });
-                }
-                for (let i = 0; i < particlesRef.current.length; i++) {
-                    const p = particlesRef.current[i];
-                    if (i < targetCoords.length) {
-                        p.isShape = true;
-                        p.targetX = targetCoords[i].x;
-                        p.targetY = targetCoords[i].y;
-                    } else {
-                        p.isShape = false;
-                    }
-                }
-            } else {
-                particlesRef.current.forEach(p => p.isShape = false);
-            }
-
-            // Query Spatial Hash for extreme O(1) performance nearby check
-            const { x: mx, y: my } = mouseRef.current;
-            const nearbyParticles = (mx !== -1 && my !== -1) ? new Set(grid.queryNearby(mx, my, ATTRACTOR_RADIUS)) : new Set<Particle>();
-
-            particlesRef.current.forEach(p => {
-                const isNearMouse = nearbyParticles.has(p);
-                const mouseX = isNearMouse ? mx : -1;
-                const mouseY = isNearMouse ? my : -1;
-
-                p.update(time, mouseX, mouseY, isHovering, width, height);
-                p.draw(ctx, isHovering);
-            });
 
             animationRef.current = requestAnimationFrame(animate);
         };
 
-        animationRef.current = requestAnimationFrame(animate);
+        animate();
 
         return () => {
-            window.removeEventListener('resize', resize);
-            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(resizeTimeout);
             cancelAnimationFrame(animationRef.current);
         };
-    }, [hoverState, DOMURL]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [DOMURL]); // Intentionally omitting hoverState so canvas does not unmount.
 
     return (
         <canvas
             ref={canvasRef}
             className="fixed inset-0 pointer-events-none z-0"
-            style={{ background: 'transparent' }}
         />
     );
 }

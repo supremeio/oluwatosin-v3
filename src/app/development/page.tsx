@@ -1,18 +1,12 @@
-import type { Metadata } from 'next';
+'use client';
+
 import Image from 'next/image';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { LinkedText } from '@/components/ui/LinkedText';
 import { DottedSeparator } from '@/components/ui/DottedSeparator';
 import { ScrambleText } from '@/components/ui/ScrambleText';
-import { DevelopmentPageHeader } from '@/components/layout/DevelopmentPageHeader';
 import { useBackground } from '@/providers/BackgroundProvider';
-
-export const metadata: Metadata = {
-  title: 'Code meets design — Design Engineering Lab',
-  description:
-    'An experimental playground where I build production-ready UI components, micro-interactions, and interface experiments. All open-source, copy-paste ready, built with modern tech.',
-};
 
 const PROJECTS = [
   { name: 'Get tech events in Europe', year: '2025' },
@@ -52,6 +46,40 @@ function ExternalLinkIndicator(): React.ReactElement {
   );
 }
 
+
+function PageHeader(): React.ReactElement {
+  const { setHoverState } = useBackground();
+
+  return (
+    <header className="flex flex-col gap-[40px] items-start w-full">
+      <div
+        className="flex flex-col gap-[8px] items-start w-full group cursor-default"
+        onMouseEnter={() => setHoverState('developer')}
+        onMouseLeave={() => setHoverState('default')}
+      >
+        <div className="flex flex-col gap-[4px] items-start">
+          <h1 className="font-figtree font-semibold text-[20px] leading-[24px] text-text-primary">
+            <ScrambleText text="Code meets design" />
+          </h1>
+          <p className="font-figtree font-medium text-[16px] leading-[19px] text-text-secondary">
+            Design engineering lab
+          </p>
+        </div>
+        <div className="flex gap-[4px] items-center">
+          <GitHubIcon />
+          <LinkedText className="font-figtree font-normal text-[15px] leading-[24px] text-text-primary">
+            GitHub
+          </LinkedText>
+        </div>
+      </div>
+      <p className="font-figtree font-medium text-[15px] leading-[1.5] text-text-primary w-full">
+        An experimental playground where I build production-ready UI components,
+        micro-interactions, and interface experiments. All open-source, copy-paste
+        ready, built with modern tech.
+      </p>
+    </header>
+  );
+}
 
 function ProjectsSection(): React.ReactElement {
   return (
@@ -133,7 +161,7 @@ function MicroInteractionsSection(): React.ReactElement {
 export default function DevelopmentPage(): React.ReactElement {
   return (
     <PageLayout>
-      <DevelopmentPageHeader />
+      <PageHeader />
 
       <div className="mt-[40px]">
         <ProjectsSection />
