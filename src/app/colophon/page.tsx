@@ -85,9 +85,9 @@ export default function ColophonPage(): React.ReactElement {
         </div>
       </div>
 
-      {/* Intro — mt-[111px] pushes it to align with the back button at top-[209px]:
+      {/* Intro — md:mt-[111px] pushes it to align with the back button at top-[209px]:
           main pt-[40] + header (30+4+24=58px) + 111 = 209px */}
-      <div className="flex flex-col gap-[16px] items-start mt-[111px]">
+      <div className="flex flex-col gap-[16px] items-start mt-[80px] md:mt-[111px]">
         {/* Mobile back button */}
         <Link
           href="/"
