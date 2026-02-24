@@ -69,6 +69,22 @@
     scroll-behavior: smooth;
   }
 
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--bg-secondary);
+    border-radius: 9999px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg-secondary) transparent;
+  }
+
   body {
     background-color: var(--bg-main);
     color: var(--text-primary);
