@@ -6,8 +6,6 @@ import { simplex2 } from '@/utils/noise';
 
 // Physics Configuration
 const PARTICLE_COUNT = 4500; // Strict requirement: 4000 - 5000
-const DOT_SIZE = 1.75; // Between 1.5px and 2px
-const AMBIENT_COLOR = 'rgba(26, 115, 232, 0.6)'; // Deep indigo
 const ACTIVE_COLOR = 'rgba(26, 115, 232, 0.9)'; // Brighter indigo for shapes
 
 // Reynolds Steering Forces
@@ -19,11 +17,61 @@ const NOISE_SPEED = 0.0002;
 // Magnetic Attractor
 const ATTRACTOR_RADIUS = 200;
 
+class SpatialGrid {
+    cellSize: number;
+    cols: number;
+    cells: Map<number, Particle[]>;
+
+    constructor(width: number, height: number, cellSize: number) {
+        this.cellSize = cellSize;
+        this.cols = Math.ceil(width / cellSize);
+        this.cells = new Map();
+    }
+
+    clear() {
+        this.cells.clear();
+    }
+
+    insert(p: Particle) {
+        const cx = Math.floor(p.x / this.cellSize);
+        const cy = Math.floor(p.y / this.cellSize);
+        const idx = cx + cy * this.cols;
+        if (!this.cells.has(idx)) {
+            this.cells.set(idx, []);
+        }
+        this.cells.get(idx)!.push(p);
+    }
+
+    queryNearby(x: number, y: number, radius: number): Particle[] {
+        const results: Particle[] = [];
+        const startX = Math.floor((x - radius) / this.cellSize);
+        const endX = Math.floor((x + radius) / this.cellSize);
+        const startY = Math.floor((y - radius) / this.cellSize);
+        const endY = Math.floor((y + radius) / this.cellSize);
+
+        for (let cy = startY; cy <= endY; cy++) {
+            for (let cx = startX; cx <= endX; cx++) {
+                const idx = cx + cy * this.cols;
+                const cell = this.cells.get(idx);
+                if (cell) {
+                    results.push(...cell);
+                }
+            }
+        }
+        return results;
+    }
+}
+
 class Particle {
     x: number;
     y: number;
     vx: number = 0;
     vy: number = 0;
+
+    // Stippling attributes
+    size: number;
+    baseAlpha: number;
+    colorStr: string;
 
     // Drift anchors
     baseX: number;
@@ -37,16 +85,20 @@ class Particle {
     // Brownian motion & juice
     seed: number;
     brownianSpeed: number;
-    // Trail history for liquid momentum
-    history: { x: number, y: number }[] = [];
 
-    constructor(w: number, h: number) {
-        this.x = Math.random() * w;
-        this.y = Math.random() * h;
+    constructor(x: number, y: number) {
+        this.x = x;
+        this.y = y;
         this.baseX = this.x;
         this.baseY = this.y;
         this.seed = Math.random() * 1000;
         this.brownianSpeed = 0.05 + Math.random() * 0.05;
+
+        // Size between 0.5px and 2.5px
+        this.size = 0.5 + Math.random() * 2.0;
+        // Opacity between 0.2 and 0.8 depth
+        this.baseAlpha = 0.2 + Math.random() * 0.6;
+        this.colorStr = `rgba(26, 115, 232, ${this.baseAlpha})`;
     }
 
     // Craig Reynolds' "Seek and Arrive" Behavior
@@ -107,8 +159,20 @@ class Particle {
             const force = this.steer(targetPos.x, targetPos.y, 50, MAX_SPEED * 3, MAX_FORCE * 2);
             fx += force.x;
             fy += force.y;
+
+            // Elastic poke (repulsion)
+            if (mouseX !== -1 && mouseY !== -1) {
+                const dxMouse = mouseX - this.x;
+                const dyMouse = mouseY - this.y;
+                const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
+                if (distMouse < 60) {
+                    const repulseForce = (60 - distMouse) * 0.05;
+                    fx -= (dxMouse / distMouse) * repulseForce;
+                    fy -= (dyMouse / distMouse) * repulseForce;
+                }
+            }
         }
-        // 2. Ambient State & Cursor Attractor
+        // 2. Ambient State
         else {
             // A. Ambient Noise Flow
             const angle = simplex2(this.x * NOISE_SCALE, this.y * NOISE_SCALE + time * NOISE_SPEED) * Math.PI * 2;
@@ -129,9 +193,7 @@ class Particle {
                 const dxMouse = mouseX - this.x;
                 const dyMouse = mouseY - this.y;
                 const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
-
                 if (distMouse < ATTRACTOR_RADIUS) {
-                    // Extremely aggressive magnetic pull, soft arrive
                     const cursorForce = this.steer(mouseX, mouseY, 100, MAX_SPEED * 2.5, MAX_FORCE * 4);
                     fx += cursorForce.x;
                     fy += cursorForce.y;
@@ -173,18 +235,18 @@ class Particle {
     }
 
     draw(ctx: CanvasRenderingContext2D, isHoveringShape: boolean) {
-        let color = AMBIENT_COLOR;
-        let size = DOT_SIZE;
+        let color = this.colorStr;
+        let renderSize = this.size;
 
         if (isHoveringShape) {
             if (this.isShape) {
                 color = ACTIVE_COLOR;
-                size = DOT_SIZE * 1.5;
+                renderSize = this.size * 1.5;
             }
         }
 
         ctx.fillStyle = color;
-        ctx.fillRect(this.x, this.y, size, size);
+        ctx.fillRect(this.x, this.y, renderSize, renderSize);
     }
 }
 
@@ -275,6 +337,8 @@ export function CanvasParticleBackground(): React.ReactElement {
         let width = window.innerWidth;
         let height = window.innerHeight;
 
+        let grid = new SpatialGrid(width, height, 100);
+
         const resize = async () => {
             width = window.innerWidth;
             height = window.innerHeight;
@@ -284,6 +348,8 @@ export function CanvasParticleBackground(): React.ReactElement {
             ctx.scale(dpr, dpr);
             canvas.style.width = `${width}px`;
             canvas.style.height = `${height}px`;
+
+            grid = new SpatialGrid(width, height, 100);
 
             initParticles(width, height);
 
@@ -298,8 +364,22 @@ export function CanvasParticleBackground(): React.ReactElement {
             // Calculate dense coverage based on screen area, but strictly lock
             // the total count between 4000 and 5000 as requested by the prompt.
             const particleCount = Math.max(4000, Math.min(5000, Math.floor((w * h) / 400)));
-            for (let i = 0; i < particleCount; i++) {
-                pArray.push(new Particle(w, h));
+
+            // Jittered Grid Distribution (Poisson-like)
+            const area = w * h;
+            const cellArea = area / particleCount;
+            const cellSize = Math.sqrt(cellArea);
+            const cols = Math.ceil(w / cellSize);
+            const rows = Math.ceil(h / cellSize);
+
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (pArray.length >= particleCount) break;
+                    // Jitter placement inside cell to look organic
+                    const jx = (x + 0.1 + Math.random() * 0.8) * cellSize;
+                    const jy = (y + 0.1 + Math.random() * 0.8) * cellSize;
+                    pArray.push(new Particle(jx, jy));
+                }
             }
             particlesRef.current = pArray;
         };
@@ -319,6 +399,11 @@ export function CanvasParticleBackground(): React.ReactElement {
 
             const isHovering = hoverState !== 'default';
             const targetCoords = shapesCacheRef.current[hoverState];
+
+            grid.clear();
+            for (let i = 0; i < particlesRef.current.length; i++) {
+                grid.insert(particlesRef.current[i]);
+            }
 
             // Assign nearest particles to target shape
             if (isHovering && targetCoords?.length > 0) {
@@ -344,8 +429,16 @@ export function CanvasParticleBackground(): React.ReactElement {
                 particlesRef.current.forEach(p => p.isShape = false);
             }
 
+            // Query Spatial Hash for extreme O(1) performance nearby check
+            const { x: mx, y: my } = mouseRef.current;
+            const nearbyParticles = (mx !== -1 && my !== -1) ? new Set(grid.queryNearby(mx, my, ATTRACTOR_RADIUS)) : new Set<Particle>();
+
             particlesRef.current.forEach(p => {
-                p.update(time, mouseRef.current.x, mouseRef.current.y, isHovering, width, height);
+                const isNearMouse = nearbyParticles.has(p);
+                const mouseX = isNearMouse ? mx : -1;
+                const mouseY = isNearMouse ? my : -1;
+
+                p.update(time, mouseX, mouseY, isHovering, width, height);
                 p.draw(ctx, isHovering);
             });
 
