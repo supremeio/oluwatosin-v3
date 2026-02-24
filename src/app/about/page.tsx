@@ -62,7 +62,7 @@ function EducationRow(): React.ReactElement {
   return (
     <div className="group flex gap-[8px] items-center p-[12px] rounded-[12px] bg-bg-secondary w-full">
       <BookIcon />
-      <div className="flex flex-1 min-w-0 gap-[8px] items-center flex-wrap md:flex-nowrap">
+      <div className="flex flex-1 min-w-0 flex-col gap-[8px] md:flex-row md:items-center">
         <div className="flex gap-[8px] items-center shrink-0">
           <span className="font-figtree font-semibold text-[15px] leading-[24px] text-text-primary pb-[2px]">
             Master&apos;s in digital design
@@ -74,8 +74,10 @@ function EducationRow(): React.ReactElement {
             <ArrowTopRightIcon />
           </div>
         </div>
-        <DottedSeparator />
-        <span className="font-figtree font-medium text-[15px] leading-[25.6px] text-text-primary text-right whitespace-nowrap shrink-0">
+        <div className="hidden md:flex flex-1 min-w-0">
+          <DottedSeparator />
+        </div>
+        <span className="font-figtree font-medium text-[15px] leading-[25.6px] text-text-primary whitespace-nowrap shrink-0">
           2025 - Present
         </span>
       </div>

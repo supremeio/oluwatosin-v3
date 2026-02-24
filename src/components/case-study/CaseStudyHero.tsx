@@ -16,12 +16,13 @@ export function CaseStudyHero({ children }: CaseStudyHeroProps): React.ReactElem
   }
 
   return (
-    <div className="w-full h-[380px] rounded-[24px] bg-bg-secondary overflow-hidden relative">
+    <div className="w-full rounded-[24px] overflow-hidden">
       <Image
         src="/Empty state image.svg"
         alt=""
-        fill
-        className="object-cover"
+        width={580}
+        height={256}
+        className="w-full h-auto"
         aria-hidden
       />
     </div>

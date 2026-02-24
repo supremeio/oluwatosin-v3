@@ -33,7 +33,7 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps): Pro
   return (
     <PageLayout>
       {/* Floating back button (left) + reading progress (right) — fixed positioned, no layout impact */}
-      <CaseStudyHeader progressPercent={23} sectionCount={5} activeSectionIndex={1} />
+      <CaseStudyHeader sectionCount={5} activeSectionIndex={1} />
 
       {/* Profile header — matches homepage layout */}
       <ProfileHeader />
