@@ -377,22 +377,46 @@ export function ChatbotWidget(): React.ReactElement {
   const showExpanded = isHovering && state === 'default';
   const showChat = state === 'chat' || state === 'menu' || state === 'replied';
 
-  // Track the virtual keyboard height using visualViewport to shift the modal up
+  // Track the virtual keyboard height using visualViewport to shift the modal up.
+  // iOS Safari/Chrome fire visualViewport resize late or not at all, so we also
+  // listen to focusin/focusout on inputs as a reliable fallback.
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (typeof window === 'undefined') return;
     const vv = window.visualViewport;
 
-    const update = () => {
-      if (window.innerWidth >= 768) { setKeyboardOffset(0); return; }
-      // On iOS: window.innerHeight is stable; vv.height shrinks when keyboard appears.
-      // On Android: both shrink together (offset ≈ 0), but fixed elements already
-      // reposition automatically, so no manual offset is needed there.
+    const getOffset = () => {
+      if (!vv) return 0;
       const offset = window.innerHeight - vv.height;
-      setKeyboardOffset(offset > 50 ? offset : 0);
+      return offset > 50 ? offset : 0;
     };
 
-    vv.addEventListener('resize', update);
-    return () => vv.removeEventListener('resize', update);
+    const onVVResize = () => {
+      if (window.innerWidth >= 768) { setKeyboardOffset(0); return; }
+      setKeyboardOffset(getOffset());
+    };
+
+    const onFocusIn = (e: FocusEvent) => {
+      if (window.innerWidth >= 768) return;
+      if (!(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement)) return;
+      // Delay lets the iOS keyboard finish animating before we read viewport height
+      setTimeout(() => setKeyboardOffset(getOffset()), 350);
+    };
+
+    const onFocusOut = (e: FocusEvent) => {
+      if (window.innerWidth >= 768) return;
+      if (!(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement)) return;
+      setKeyboardOffset(0);
+    };
+
+    vv?.addEventListener('resize', onVVResize);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+
+    return () => {
+      vv?.removeEventListener('resize', onVVResize);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+    };
   }, []);
 
   useEffect(() => {
