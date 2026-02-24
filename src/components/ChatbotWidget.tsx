@@ -55,7 +55,7 @@ function DarkHeader({ onClose }: { onClose: () => void }): React.ReactElement {
       <div className="flex-[1_0_0] flex flex-col gap-[8px] items-start justify-center min-w-0 relative">
         <div className="relative shrink-0 w-[32px] h-[32px]">
           <motion.div
-            className="absolute inset-0 rounded-full bg-[#4169FF] blur-md mix-blend-screen"
+            className="absolute inset-0 rounded-full bg-[#4169FF] blur-md"
             initial={{ opacity: 0.4, scale: 0.8 }}
             animate={{ opacity: [0.4, 0.8, 0.4], scale: [0.8, 1.2, 0.8] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -121,7 +121,7 @@ function ChatbotDefault({ onExpand }: { onExpand: () => void }): React.ReactElem
       <div className="flex-1 flex flex-col gap-[8px] items-start min-w-0">
         <div className="relative w-[32px] h-[32px] shrink-0">
           <motion.div
-            className="absolute inset-0 rounded-full bg-[#4169FF] blur-md mix-blend-screen"
+            className="absolute inset-0 rounded-full bg-[#4169FF] blur-md"
             initial={{ opacity: 0.4, scale: 0.8 }}
             animate={{ opacity: [0.4, 0.8, 0.4], scale: [0.8, 1.2, 0.8] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -205,7 +205,7 @@ function ChatbotChat({
             <div className="flex gap-[8px] items-start pt-[8px] w-full shrink-0 relative">
               <div className="relative shrink-0 w-[32px] h-[32px]">
                 <motion.div
-                  className="absolute inset-0 rounded-full bg-[#4169FF] blur-md mix-blend-screen"
+                  className="absolute inset-0 rounded-full bg-[#4169FF] blur-md"
                   initial={{ opacity: 0.4, scale: 0.8 }}
                   animate={{ opacity: [0.4, 0.8, 0.4], scale: [0.8, 1.2, 0.8] }}
                   transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
