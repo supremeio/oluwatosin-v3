@@ -372,7 +372,6 @@ export function ChatbotWidget(): React.ReactElement {
   const [state, setState] = useState<ChatbotState>('default');
   const [isHovering, setIsHovering] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
-  const [keyboardVisibleH, setKeyboardVisibleH] = useState(0);
   const { isChatOpen, openChat, closeChat } = useChatbotContext();
 
   const showExpanded = isHovering && state === 'default';
@@ -388,17 +387,11 @@ export function ChatbotWidget(): React.ReactElement {
     const applyOffset = () => {
       if (!vv) return;
       const offset = window.innerHeight - vv.height;
-      if (offset > 50) {
-        setKeyboardOffset(offset);
-        setKeyboardVisibleH(vv.height);
-      } else {
-        setKeyboardOffset(0);
-        setKeyboardVisibleH(0);
-      }
+      setKeyboardOffset(offset > 50 ? offset : 0);
     };
 
     const onVVResize = () => {
-      if (window.innerWidth >= 768) { setKeyboardOffset(0); setKeyboardVisibleH(0); return; }
+      if (window.innerWidth >= 768) { setKeyboardOffset(0); return; }
       applyOffset();
     };
 
@@ -413,7 +406,6 @@ export function ChatbotWidget(): React.ReactElement {
       if (window.innerWidth >= 768) return;
       if (!(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement)) return;
       setKeyboardOffset(0);
-      setKeyboardVisibleH(0);
     };
 
     vv?.addEventListener('resize', onVVResize);
@@ -448,7 +440,6 @@ export function ChatbotWidget(): React.ReactElement {
     setState('default');
     setIsHovering(false);
     setKeyboardOffset(0);
-    setKeyboardVisibleH(0);
   }, []);
   const handleStartChat = useCallback(() => setState('chat'), []);
   const handleOpenMenu = useCallback(() => setState('menu'), []);
@@ -475,21 +466,18 @@ export function ChatbotWidget(): React.ReactElement {
 
       <aside
         className={`fixed z-30 pointer-events-none ${showChat
-          ? 'bottom-[24px] left-[24px] right-[24px] h-[calc(100dvh-72px)] md:inset-auto md:h-auto md:hidden min-[1372px]:block min-[1372px]:inset-auto min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
+          ? 'top-[48px] bottom-[24px] left-[24px] right-[24px] md:inset-auto md:hidden min-[1372px]:block min-[1372px]:inset-auto min-[1372px]:top-auto min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
           : 'hidden min-[1372px]:block min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
           }`}
         aria-label="Quick answer AI"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         style={{
-          // Push the widget up above the keyboard and cap its height so it
-          // never overflows the top of the screen. keyboardVisibleH is the
-          // visual viewport height when the keyboard is open; subtracting 40px
-          // (16px gap + 24px breathing room at the top) guarantees the widget
-          // fits entirely within the visible area.
-          bottom: keyboardOffset > 0 ? `${keyboardOffset + 16}px` : undefined,
-          maxHeight: keyboardOffset > 0 ? `${keyboardVisibleH - 40}px` : undefined,
-          transition: 'bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          // Shrink the content area from the bottom so the input rises above
+          // the keyboard. The container stays anchored (top-[48px]/bottom-[24px])
+          // so nothing overflows off-screen.
+          paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : undefined,
+          transition: 'padding-bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         <motion.div
