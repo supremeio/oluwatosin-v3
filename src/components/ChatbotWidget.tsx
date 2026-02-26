@@ -378,6 +378,7 @@ function ChatbotChat({
 export function ChatbotWidget(): React.ReactElement {
   const [state, setState] = useState<ChatbotState>('default');
   const [isHovering, setIsHovering] = useState(false);
+  const asideRef = useRef<HTMLElement>(null);
   const { isChatOpen, openChat, closeChat } = useChatbotContext();
 
   const showExpanded = isHovering && state === 'default';
@@ -392,22 +393,33 @@ export function ChatbotWidget(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChatOpen]);
 
-  // On mobile, lock document scroll while chat is open.
-  // When a textarea inside a fixed element is focused, iOS scrolls the
-  // document which shifts the visual viewport's offsetTop and pushes fixed
-  // elements off-screen. Body-fixed pattern prevents that scroll entirely.
+  // On mobile, use the Visual Viewport API to explicitly reposition the aside
+  // so it always sits within the visible area above the keyboard.
+  // iOS Safari anchors position:fixed to the layout viewport (not visual), so
+  // CSS top/bottom anchors alone are insufficient — the modal sits behind the
+  // keyboard. vv.offsetTop tracks any scroll iOS applies when focusing an input.
   useEffect(() => {
-    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
-    if (!showChat) return;
-    const scrollY = window.scrollY;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
+    if (typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    if (!vv || !showChat) return;
+
+    const reposition = () => {
+      const el = asideRef.current;
+      if (!el || window.innerWidth >= 768) return;
+      el.style.top    = `${vv.offsetTop + 24}px`;
+      el.style.height = `${vv.height - 48}px`;
+      el.style.bottom = 'auto';
+    };
+
+    reposition();
+    vv.addEventListener('resize', reposition);
+    vv.addEventListener('scroll', reposition);
+
     return () => {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      window.scrollTo(0, scrollY);
+      vv.removeEventListener('resize', reposition);
+      vv.removeEventListener('scroll', reposition);
+      const el = asideRef.current;
+      if (el) { el.style.top = ''; el.style.height = ''; el.style.bottom = ''; }
     };
   }, [showChat]);
 
@@ -447,6 +459,7 @@ export function ChatbotWidget(): React.ReactElement {
       </AnimatePresence>
 
       <aside
+        ref={asideRef as React.RefObject<HTMLDivElement>}
         className={`fixed z-30 pointer-events-none ${showChat
           ? 'top-[24px] bottom-[24px] left-[24px] right-[24px] md:inset-auto md:hidden min-[1372px]:block min-[1372px]:inset-auto min-[1372px]:top-auto min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
           : 'hidden min-[1372px]:block min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
