@@ -1,8 +1,12 @@
 'use client';
 
+import { useId } from 'react';
 import { motion } from 'framer-motion';
 
 export function AiGlowingIcon({ className = '' }: { className?: string }) {
+    const uid = useId();
+    const maskId = `siri-mask-${uid}`;
+    const filterId = `siri-blur-${uid}`;
     const floatTransition = {
         duration: 3,
         repeat: Infinity,
@@ -17,17 +21,17 @@ export function AiGlowingIcon({ className = '' }: { className?: string }) {
             xmlns="http://www.w3.org/2000/svg"
             className={`w-full h-full ${className}`}
         >
-            <mask id="siri-mask" style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+            <mask id={maskId} style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
                 <circle cx="16" cy="16" r="16" fill="#D9D9D9" />
             </mask>
 
-            <g mask="url(#siri-mask)">
+            <g mask={`url(#${maskId})`}>
                 <circle cx="16" cy="16" r="16" fill="#0E1233" />
 
                 {/* Filter on parent <g>, animation on child <motion.g> — 
                      iOS Safari drops SVG filters when combined with 
                      hardware-accelerated transforms on the same element */}
-                <g filter="url(#siri-blur)">
+                <g filter={`url(#${filterId})`}>
                     <motion.g
                         initial={{ rotate: 0 }}
                         animate={{ rotate: 360 }}
@@ -93,7 +97,7 @@ export function AiGlowingIcon({ className = '' }: { className?: string }) {
             </g>
 
             <defs>
-                <filter id="siri-blur" x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
                     <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
                     <feGaussianBlur stdDeviation="4.5" result="effect1_foregroundBlur_705_19939" />
