@@ -392,6 +392,25 @@ export function ChatbotWidget(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChatOpen]);
 
+  // On mobile, lock document scroll while chat is open.
+  // When a textarea inside a fixed element is focused, iOS scrolls the
+  // document which shifts the visual viewport's offsetTop and pushes fixed
+  // elements off-screen. Body-fixed pattern prevents that scroll entirely.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
+    if (!showChat) return;
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, [showChat]);
+
   useEffect(() => {
     if (showChat) {
       openChat();
