@@ -379,7 +379,7 @@ export function ChatbotWidget(): React.ReactElement {
   const [state, setState] = useState<ChatbotState>('default');
   const [isHovering, setIsHovering] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
-  const { isChatOpen, openChat, closeChat } = useChatbotContext();
+  const { isChatOpen, openChat, closeChat, originRect } = useChatbotContext();
 
   const showExpanded = isHovering && state === 'default';
   const showChat = state === 'chat' || state === 'menu' || state === 'replied';
@@ -499,32 +499,43 @@ export function ChatbotWidget(): React.ReactElement {
           className="pointer-events-auto h-full md:h-auto overflow-hidden"
         >
           <AnimatePresence mode="popLayout">
-            {showChat && (
-              <motion.div
-                key="chat"
-                style={{ transformOrigin: 'bottom center' }}
-                initial={{ opacity: 0, y: 60, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 40, scale: 0.98 }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 380,
-                  damping: 34,
-                  mass: 0.8,
-                  opacity: { duration: 0.18, ease: 'easeOut' },
-                }}
-                className="h-full"
-              >
-                <ChatbotChat
-                  state={state}
-                  onClose={handleClose}
-                  onCloseMenu={handleCloseMenu}
-                  onOpenMenu={handleOpenMenu}
-                  onSelectQuestion={handleSelectQuestion}
-                  onSendUserMessage={handleSendUserMessage}
-                />
-              </motion.div>
-            )}
+            {showChat && (() => {
+              // Compute transform-origin relative to the aside element
+              const aside = asideRef.current;
+              let origin = 'center calc(100% + 48px)'; // fallback: below aside (where nav sits)
+              if (originRect && aside) {
+                const ar = aside.getBoundingClientRect();
+                const ox = originRect.left + originRect.width / 2 - ar.left;
+                const oy = originRect.top + originRect.height / 2 - ar.top;
+                origin = `${ox}px ${oy}px`;
+              }
+              return (
+                <motion.div
+                  key="chat"
+                  style={{ transformOrigin: origin }}
+                  initial={{ opacity: 0, scale: 0.08 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.08 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 260,
+                    damping: 30,
+                    mass: 0.8,
+                    opacity: { duration: 0.15 },
+                  }}
+                  className="h-full"
+                >
+                  <ChatbotChat
+                    state={state}
+                    onClose={handleClose}
+                    onCloseMenu={handleCloseMenu}
+                    onOpenMenu={handleOpenMenu}
+                    onSelectQuestion={handleSelectQuestion}
+                    onSendUserMessage={handleSendUserMessage}
+                  />
+                </motion.div>
+              );
+            })()}
             {!showChat && showExpanded && (
               <motion.div
                 key="hover"

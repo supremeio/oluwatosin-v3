@@ -42,9 +42,8 @@ export function FloatingNav(): React.ReactElement {
 
   return (
     <nav
-      className={`fixed bottom-[24px] left-0 right-0 z-50 justify-center pointer-events-none ${
-        isChatOpen ? 'hidden md:flex' : 'flex'
-      }`}
+      className={`fixed bottom-[24px] left-0 right-0 z-50 justify-center pointer-events-none ${isChatOpen ? 'hidden md:flex' : 'flex'
+        }`}
       aria-label="Main navigation"
     >
       <div className="relative flex gap-[2px] items-center rounded-[16px] pointer-events-auto">
@@ -95,7 +94,10 @@ export function FloatingNav(): React.ReactElement {
               ) : (
                 <button
                   type="button"
-                  onClick={item.label === 'Chatbot' ? toggleChat : undefined}
+                  onClick={item.label === 'Chatbot' ? (e: React.MouseEvent<HTMLButtonElement>) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    toggleChat(rect);
+                  } : undefined}
                   className="relative flex items-center justify-center p-[16px] rounded-[40px] bg-bg-main"
                   aria-label={item.label}
                   aria-current={isActive ? 'page' : undefined}
