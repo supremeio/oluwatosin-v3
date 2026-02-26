@@ -14,6 +14,9 @@ export interface CaseStudy {
   story: string[];
 }
 
+/** Ordered list of case-study slugs — used for prev/next navigation */
+export const caseStudySlugs = ['clarawave', 'phpsandbox', 'sendpackafrica', 'collectafrica', 'autospend'] as const;
+
 export const caseStudies: Record<string, CaseStudy> = {
   clarawave: {
     title: 'ClaraWave',

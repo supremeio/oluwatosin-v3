@@ -3,55 +3,55 @@
 import { useEffect, useRef, useState } from 'react';
 
 // ─── Configuration ─────────────────────────────────────────────────────────────
-const POISSON_R     = 20;
+const POISSON_R = 20;
 
-const DOT_R         = 0.75;   // Ambient: 1.5 px diameter
-const SHAPE_DOT_R   = 1.0;    // Shape mode: 2 px diameter
+const DOT_R = 0.75;   // Ambient: 1.5 px diameter
+const SHAPE_DOT_R = 1.0;    // Shape mode: 2 px diameter
 
 // Resting physics — soft spring so particles feel like they float
-const REST_K        = 0.016;
-const REST_DAMP     = 0.92;
+const REST_K = 0.016;
+const REST_DAMP = 0.92;
 
 // Shape-forming physics — elastic pull
-const SHAPE_K       = 0.072;
-const SHAPE_DAMP    = 0.81;
-const SPRING_RAMP   = 500;    // ms — ease-in window: REST_K → SHAPE_K
+const SHAPE_K = 0.072;
+const SHAPE_DAMP = 0.81;
+const SPRING_RAMP = 500;    // ms — ease-in window: REST_K → SHAPE_K
 
 // Ambient drift — dual-frequency Lissajous gives each particle a slow,
 // organic looping path that's clearly visible but never distracting
-const DRIFT_FREQ    = 0.00136;
-const DRIFT_AMP     = 3.8;
-const DRIFT_FREQ2   = 0.00056;
-const DRIFT_AMP2    = 1.6;
+const DRIFT_FREQ = 0.00136;
+const DRIFT_AMP = 3.8;
+const DRIFT_FREQ2 = 0.00056;
+const DRIFT_AMP2 = 1.6;
 
 // Cursor interaction — cubic ease-out for smoother halo edge
-const REPEL_R       = 190;
-const REPEL_MAX     = 32;
-const SPEED_SCALE   = 0.055;
-const MAX_CV_SPEED  = 5;
-const SPEED_DECAY   = 0.88;
+const REPEL_R = 190;
+const REPEL_MAX = 32;
+const SPEED_SCALE = 0.055;
+const MAX_CV_SPEED = 5;
+const SPEED_DECAY = 0.88;
 
 // Layout
-const CONTENT_W     = 580;
-const COL_GAP       = 20;
-const FADE_W        = 120;  // gradient fade width at all four screen edges
+const CONTENT_W = 580;
+const COL_GAP = 20;
+const FADE_W = 120;  // gradient fade width at all four screen edges
 
 // Emoji scan steps — three density tiers
-const SCAN_STEP      = 11;
+const SCAN_STEP = 11;
 const FILL_SCAN_STEP = 38;
 const SLOW_SCAN_STEP = 12;
 
 // Formation stagger windows (ms)
 const OUTLINE_SPREAD = 1200;
-const FILL_OFFSET    = 300;
-const FILL_SPREAD    = 1900;
-const SLOW_START     = FILL_OFFSET + FILL_SPREAD;
-const SLOW_DURATION  = 27800;
+const FILL_OFFSET = 300;
+const FILL_SPREAD = 1900;
+const SLOW_START = FILL_OFFSET + FILL_SPREAD;
+const SLOW_DURATION = 27800;
 
 const TEXT_APPEAR_AT = OUTLINE_SPREAD;
 
 // Zone anchor margins (px)
-const ZONE_TOP_MARGIN    = 80;   // left emoji: top edge 80px from top
+const ZONE_TOP_MARGIN = 80;   // left emoji: top edge 80px from top
 const ZONE_BOTTOM_MARGIN = 160;  // right emoji: bottom edge 160px from bottom
 
 const LS_KEY = 'portfolio-emoji';
@@ -71,37 +71,37 @@ type Pt = { x: number; y: number; r: number; g: number; b: number };
 // ─── Cached emoji data ─────────────────────────────────────────────────────────
 interface EmojiPts {
   outline: Pt[];
-  fill:    Pt[];
-  slow:    Pt[];
-  topY:    number;  // min y of outline pts (negative — above centre)
+  fill: Pt[];
+  slow: Pt[];
+  topY: number;  // min y of outline pts (negative — above centre)
   bottomY: number;  // max y
-  minX:    number;  // min x
-  maxX:    number;  // max x
+  minX: number;  // min x
+  maxX: number;  // max x
 }
 
 // ─── Zone info (passed from canvas → React for overlay positioning) ────────────
 interface ZoneInfo {
-  zone:    NonNullable<Zone>;
-  cx:      number;   // screen x of shape centre
-  cy:      number;   // screen y of shape centre
-  topY:    number;   // emoji top offset (topY < 0)
+  zone: NonNullable<Zone>;
+  cx: number;   // screen x of shape centre
+  cy: number;   // screen y of shape centre
+  topY: number;   // emoji top offset (topY < 0)
   bottomY: number;
-  minX:    number;
-  maxX:    number;
-  emoji:   string;
+  minX: number;
+  maxX: number;
+  emoji: string;
 }
 
 // ─── Emoji → coloured stipple points (synchronous canvas render) ──────────────
 function emojiToPoints(emoji: string, step: number): Pt[] {
   const SIZE = 400;
-  const oc   = document.createElement('canvas');
-  oc.width   = SIZE;
-  oc.height  = SIZE;
-  const ox   = oc.getContext('2d', { willReadFrequently: true });
+  const oc = document.createElement('canvas');
+  oc.width = SIZE;
+  oc.height = SIZE;
+  const ox = oc.getContext('2d', { willReadFrequently: true });
   if (!ox) return [];
 
-  ox.font         = '260px serif';
-  ox.textAlign    = 'center';
+  ox.font = '260px serif';
+  ox.textAlign = 'center';
   ox.textBaseline = 'middle';
   ox.fillText(emoji, SIZE / 2, SIZE / 2);
 
@@ -122,12 +122,12 @@ function emojiToPoints(emoji: string, step: number): Pt[] {
 
 // ─── Poisson-disc sampling ─────────────────────────────────────────────────────
 function poissonDisc(w: number, h: number, r: number): { x: number; y: number }[] {
-  const k    = 30;
+  const k = 30;
   const cell = r / Math.SQRT2;
   const cols = Math.ceil(w / cell);
   const rows = Math.ceil(h / cell);
   const grid: ({ x: number; y: number } | null)[] = new Array(cols * rows).fill(null);
-  const pts:  { x: number; y: number }[] = [];
+  const pts: { x: number; y: number }[] = [];
   const active: { x: number; y: number }[] = [];
 
   function insert(p: { x: number; y: number }) {
@@ -137,12 +137,12 @@ function poissonDisc(w: number, h: number, r: number): { x: number; y: number }[
 
   function valid(p: { x: number; y: number }): boolean {
     if (p.x < 0 || p.x >= w || p.y < 0 || p.y >= h) return false;
-    const c  = Math.floor(p.x / cell);
+    const c = Math.floor(p.x / cell);
     const rr = Math.floor(p.y / cell);
     for (let dr = -2; dr <= 2; dr++) {
       for (let dc = -2; dc <= 2; dc++) {
         const nr = Math.max(0, Math.min(rows - 1, rr + dr));
-        const nc = Math.max(0, Math.min(cols - 1, c  + dc));
+        const nc = Math.max(0, Math.min(cols - 1, c + dc));
         const nb = grid[nr * cols + nc];
         if (nb) {
           const dx = nb.x - p.x, dy = nb.y - p.y;
@@ -156,7 +156,7 @@ function poissonDisc(w: number, h: number, r: number): { x: number; y: number }[
   insert({ x: Math.random() * w, y: Math.random() * h });
 
   while (active.length > 0) {
-    const i   = (Math.random() * active.length) | 0;
+    const i = (Math.random() * active.length) | 0;
     const src = active[i];
     let found = false;
     for (let j = 0; j < k; j++) {
@@ -181,17 +181,17 @@ function addRepulsion(
   const dx = px - mx, dy = py - my;
   const d2 = dx * dx + dy * dy;
   if (d2 >= REPEL_R * REPEL_R || d2 === 0) return [gx, gy];
-  const d  = Math.sqrt(d2);
+  const d = Math.sqrt(d2);
   const nt = 1 - d / REPEL_R;
-  const f  = nt * nt * nt * REPEL_MAX * (1 + cvSpeed * SPEED_SCALE);
+  const f = nt * nt * nt * REPEL_MAX * (1 + cvSpeed * SPEED_SCALE);
   return [gx + (dx / d) * f, gy + (dy / d) * f];
 }
 
 // ─── Particle ──────────────────────────────────────────────────────────────────
 class Particle {
-  x:  number; y:  number;
+  x: number; y: number;
   ox: number; oy: number;
-  vx = 0;     vy = 0;
+  vx = 0; vy = 0;
   sx: number; sy: number;
   sx2: number; sy2: number;
   zone: Zone = null;
@@ -202,8 +202,8 @@ class Particle {
   constructor(x: number, y: number) {
     this.x = this.ox = x;
     this.y = this.oy = y;
-    this.sx  = Math.random() * Math.PI * 2;
-    this.sy  = Math.random() * Math.PI * 2;
+    this.sx = Math.random() * Math.PI * 2;
+    this.sy = Math.random() * Math.PI * 2;
     this.sx2 = Math.random() * Math.PI * 2;
     this.sy2 = Math.random() * Math.PI * 2;
   }
@@ -218,17 +218,17 @@ class Particle {
     cvSpeed: number,
   ) {
     let inShape = false;
-    let eased   = 0;
+    let eased = 0;
 
     if (this.zone !== null) {
       const at = zoneActivatedAtMap[this.zone];
       if (at !== undefined) {
         const zoneAge = now - at;
         if (zoneAge >= this.startOffset) {
-          inShape      = true;
-          const age    = zoneAge - this.startOffset;
-          const ramp   = Math.min(age / SPRING_RAMP, 1);
-          eased        = ramp * ramp;
+          inShape = true;
+          const age = zoneAge - this.startOffset;
+          const ramp = Math.min(age / SPRING_RAMP, 1);
+          eased = ramp * ramp;
         }
       }
     }
@@ -237,15 +237,15 @@ class Particle {
 
     if (inShape) {
       gx = this.tx; gy = this.ty;
-      k  = REST_K + (SHAPE_K - REST_K) * eased;
+      k = REST_K + (SHAPE_K - REST_K) * eased;
 
       if (eased >= 1) [gx, gy] = addRepulsion(gx, gy, this.x, this.y, mx, my, cvSpeed);
     } else {
       gx = this.ox
-        + Math.sin(now * DRIFT_FREQ  + this.sx)  * DRIFT_AMP
+        + Math.sin(now * DRIFT_FREQ + this.sx) * DRIFT_AMP
         + Math.sin(now * DRIFT_FREQ2 + this.sx2) * DRIFT_AMP2;
       gy = this.oy
-        + Math.cos(now * DRIFT_FREQ  + this.sy)  * DRIFT_AMP
+        + Math.cos(now * DRIFT_FREQ + this.sy) * DRIFT_AMP
         + Math.cos(now * DRIFT_FREQ2 + this.sy2) * DRIFT_AMP2;
 
       [gx, gy] = addRepulsion(gx, gy, this.x, this.y, mx, my, cvSpeed);
@@ -271,7 +271,7 @@ class Particle {
 // ─── assignZone ────────────────────────────────────────────────────────────────
 function assignZone(
   particles: Particle[],
-  targets:   Pt[],
+  targets: Pt[],
   cx: number, cy: number,
   zone: Zone,
   offsetMin: number, offsetMax: number,
@@ -282,14 +282,14 @@ function assignZone(
   const n = sorted.length;
 
   for (let i = 0; i < n; i++) {
-    const t  = sorted[i];
+    const t = sorted[i];
     const gx = cx + t.x, gy = cy + t.y;
     let best: Particle | null = null, bestD = Infinity;
 
     for (const p of particles) {
       if (p.zone !== null) continue;
       const dx = p.ox - gx, dy = p.oy - gy;
-      const d  = dx * dx + dy * dy;
+      const d = dx * dx + dy * dy;
       if (d < bestD) { bestD = d; best = p; }
     }
 
@@ -305,7 +305,7 @@ function assignZone(
 // ─── assignZoneWave ────────────────────────────────────────────────────────────
 function assignZoneWave(
   particles: Particle[],
-  targets:   Pt[],
+  targets: Pt[],
   cx: number, cy: number,
   zone: Zone,
   xMin: number, xMax: number,
@@ -329,16 +329,16 @@ function assignZoneWave(
     let bestIdx = 0, bestDist = Infinity;
 
     for (let j = 0; j < targets.length; j++) {
-      const t  = targets[j];
+      const t = targets[j];
       const dx = p.ox - (cx + t.x), dy = p.oy - (cy + t.y);
-      const d  = dx * dx + dy * dy;
+      const d = dx * dx + dy * dy;
       if (d < bestDist) { bestDist = d; bestIdx = j; }
     }
 
     const t = targets[bestIdx];
     p.zone = zone;
-    p.tx   = cx + t.x + (Math.random() * 3 - 1.5);
-    p.ty   = cy + t.y + (Math.random() * 3 - 1.5);
+    p.tx = cx + t.x + (Math.random() * 3 - 1.5);
+    p.ty = cy + t.y + (Math.random() * 3 - 1.5);
     p.tr = t.r; p.tg = t.g; p.tb = t.b;
     p.startOffset =
       offsetMin + (i / Math.max(n - 1, 1)) * (offsetMax - offsetMin) + Math.random() * 800;
@@ -350,9 +350,9 @@ export function CanvasParticleBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // ── Canvas → React bridges (called from canvas loop, always latest fn) ──────
-  const onZoneActivateRef   = useRef<(info: ZoneInfo) => void>(() => {});
-  const onZoneDeactivateRef = useRef<(zone: NonNullable<Zone>) => void>(() => {});
-  const clearSavedZoneRef   = useRef<(zone: NonNullable<Zone>) => void>(() => {});
+  const onZoneActivateRef = useRef<(info: ZoneInfo) => void>(() => { });
+  const onZoneDeactivateRef = useRef<(zone: NonNullable<Zone>) => void>(() => { });
+  const clearSavedZoneRef = useRef<(zone: NonNullable<Zone>) => void>(() => { });
 
   // ── Saved emoji state (localStorage) ─────────────────────────────────────
   const savedEmojisRef = useRef<Partial<Record<NonNullable<Zone>, string>>>({});
@@ -361,7 +361,7 @@ export function CanvasParticleBackground() {
     if (typeof window === 'undefined') return {};
     try {
       const parsed = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
-      const init   = (parsed ?? {}) as Partial<Record<NonNullable<Zone>, string>>;
+      const init = (parsed ?? {}) as Partial<Record<NonNullable<Zone>, string>>;
       savedEmojisRef.current = init;
       return init;
     } catch { return {}; }
@@ -373,27 +373,27 @@ export function CanvasParticleBackground() {
   const [cursorMargin, setCursorMargin] = useState<NonNullable<Zone> | null>(null);
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      const w  = window.innerWidth;
+      const w = window.innerWidth;
       const cL = w / 2 - CONTENT_W / 2 - COL_GAP;
       const cR = w / 2 + CONTENT_W / 2 + COL_GAP;
-      if (e.clientX < cL)       setCursorMargin('dev');
-      else if (e.clientX > cR)  setCursorMargin('org');
-      else                       setCursorMargin(null);
+      if (e.clientX < cL) setCursorMargin('dev');
+      else if (e.clientX > cR) setCursorMargin('org');
+      else setCursorMargin(null);
     };
     const onLeave = () => setCursorMargin(null);
-    window.addEventListener('mousemove',  onMove);
+    window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseleave', onLeave);
     return () => {
-      window.removeEventListener('mousemove',  onMove);
+      window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseleave', onLeave);
     };
   }, []);
 
   // ── Per-zone overlay state ─────────────────────────────────────────────────
   type HoverMode = 'save' | 'saved';
-  const [zoneInfoMap,      setZoneInfoMap]      = useState<Partial<Record<NonNullable<Zone>, ZoneInfo>>>({});
+  const [zoneInfoMap, setZoneInfoMap] = useState<Partial<Record<NonNullable<Zone>, ZoneInfo>>>({});
   const [buttonVisibleMap, setButtonVisibleMap] = useState<Partial<Record<NonNullable<Zone>, boolean>>>({});
-  const [hoverModeMap,     setHoverModeMap]     = useState<Partial<Record<NonNullable<Zone>, HoverMode>>>({});
+  const [hoverModeMap, setHoverModeMap] = useState<Partial<Record<NonNullable<Zone>, HoverMode>>>({});
 
   // Timers for delayed button appearance / auto-hide
   const showTimersRef = useRef<Partial<Record<NonNullable<Zone>, ReturnType<typeof setTimeout>>>>({});
@@ -424,9 +424,9 @@ export function CanvasParticleBackground() {
   onZoneDeactivateRef.current = (zone: NonNullable<Zone>) => {
     clearTimeout(showTimersRef.current[zone]);
     clearTimeout(hideTimersRef.current[zone]);
-    setZoneInfoMap(prev      => { const n = { ...prev };      delete n[zone]; return n; });
-    setButtonVisibleMap(prev => { const n = { ...prev };      delete n[zone]; return n; });
-    setHoverModeMap(prev     => { const n = { ...prev };      delete n[zone]; return n; });
+    setZoneInfoMap(prev => { const n = { ...prev }; delete n[zone]; return n; });
+    setButtonVisibleMap(prev => { const n = { ...prev }; delete n[zone]; return n; });
+    setHoverModeMap(prev => { const n = { ...prev }; delete n[zone]; return n; });
   };
 
   // ── Save / Clear handlers ──────────────────────────────────────────────────
@@ -436,7 +436,7 @@ export function CanvasParticleBackground() {
     const updated = { ...savedEmojisRef.current, [zone]: info.emoji };
     savedEmojisRef.current = updated;
     setSavedEmojis(updated);
-    try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch { }
 
     // Show "Saved!" immediately, then auto-hide after 2 s
     setHoverModeMap(prev => ({ ...prev, [zone]: 'saved' }));
@@ -452,7 +452,7 @@ export function CanvasParticleBackground() {
     delete updated[zone];
     savedEmojisRef.current = updated;
     setSavedEmojis(updated);
-    try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch { }
     clearSavedZoneRef.current(zone);
     // React cleanup handled by clearSavedZoneRef calling onZoneDeactivateRef
   };
@@ -471,17 +471,17 @@ export function CanvasParticleBackground() {
     let colL = 0, colR = 0, leftCX = 0, rightCX = 0;
 
     function updateGeometry() {
-      colL    = W / 2 - CONTENT_W / 2 - COL_GAP;
-      colR    = W / 2 + CONTENT_W / 2 + COL_GAP;
-      leftCX  = colL / 2;
+      colL = W / 2 - CONTENT_W / 2 - COL_GAP;
+      colR = W / 2 + CONTENT_W / 2 + COL_GAP;
+      leftCX = colL / 2;
       rightCX = colR + (W - colR) / 2;
     }
 
     function sizeCanvas() {
       W = window.innerWidth; H = window.innerHeight;
-      canvas!.width  = W * dpr; canvas!.height = H * dpr;
+      canvas!.width = W * dpr; canvas!.height = H * dpr;
       ctx!.scale(dpr, dpr);
-      canvas!.style.width  = `${W}px`;
+      canvas!.style.width = `${W}px`;
       canvas!.style.height = `${H}px`;
       updateGeometry();
     }
@@ -495,12 +495,12 @@ export function CanvasParticleBackground() {
       const ys = outline.map(p => p.y);
       emojiCache.set(emoji, {
         outline,
-        fill:    emojiToPoints(emoji, FILL_SCAN_STEP),
-        slow:    emojiToPoints(emoji, SLOW_SCAN_STEP),
-        topY:    outline.length ? Math.min(...ys) : -130,
-        bottomY: outline.length ? Math.max(...ys) :  130,
-        minX:    outline.length ? Math.min(...xs) : -130,
-        maxX:    outline.length ? Math.max(...xs) :  130,
+        fill: emojiToPoints(emoji, FILL_SCAN_STEP),
+        slow: emojiToPoints(emoji, SLOW_SCAN_STEP),
+        topY: outline.length ? Math.min(...ys) : -130,
+        bottomY: outline.length ? Math.max(...ys) : 130,
+        minX: outline.length ? Math.min(...xs) : -130,
+        maxX: outline.length ? Math.max(...xs) : 130,
       });
     }
 
@@ -534,32 +534,32 @@ export function CanvasParticleBackground() {
       .map(p => new Particle(p.x - 50, p.y - 50));
 
     // ── Zone state (canvas-side) ──────────────────────────────────────────
-    const zoneEmoji:         Partial<Record<NonNullable<Zone>, string>>   = {};
-    const zonePts:           Partial<Record<NonNullable<Zone>, EmojiPts>> = {};
-    const zoneActivatedAtMap: Partial<Record<NonNullable<Zone>, number>>  = {};
+    const zoneEmoji: Partial<Record<NonNullable<Zone>, string>> = {};
+    const zonePts: Partial<Record<NonNullable<Zone>, EmojiPts>> = {};
+    const zoneActivatedAtMap: Partial<Record<NonNullable<Zone>, number>> = {};
 
     function activateZone(zone: NonNullable<Zone>, forceEmoji?: string) {
       for (const p of particles) { if (p.zone === zone) p.zone = null; }
 
       let emoji: string;
-      let pts:   EmojiPts | undefined;
+      let pts: EmojiPts | undefined;
 
       if (forceEmoji) {
         emoji = forceEmoji;
-        pts   = emojiCache.get(emoji);
+        pts = emojiCache.get(emoji);
       } else {
         emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-        pts   = emojiCache.get(emoji);
+        pts = emojiCache.get(emoji);
         for (let i = 1; (!pts || !pts.outline.length) && i < EMOJIS.length; i++) {
           emoji = EMOJIS[(EMOJIS.indexOf(emoji) + 1) % EMOJIS.length];
-          pts   = emojiCache.get(emoji);
+          pts = emojiCache.get(emoji);
         }
       }
 
       if (!pts || !pts.outline.length) return;
 
       zoneEmoji[zone] = emoji;
-      zonePts[zone]   = pts;
+      zonePts[zone] = pts;
 
       const cx = zone === 'dev' ? leftCX : rightCX;
       const cy = zone === 'dev'
@@ -569,19 +569,19 @@ export function CanvasParticleBackground() {
       // Notify React overlay
       onZoneActivateRef.current({
         zone, cx, cy,
-        topY:    pts.topY,
+        topY: pts.topY,
         bottomY: pts.bottomY,
-        minX:    pts.minX,
-        maxX:    pts.maxX,
+        minX: pts.minX,
+        maxX: pts.maxX,
         emoji,
       });
 
       assignZone(particles, pts.outline, cx, cy, zone, 0, OUTLINE_SPREAD);
-      assignZone(particles, pts.fill,    cx, cy, zone, FILL_OFFSET, FILL_OFFSET + FILL_SPREAD);
+      assignZone(particles, pts.fill, cx, cy, zone, FILL_OFFSET, FILL_OFFSET + FILL_SPREAD);
       assignZoneWave(
         particles, pts.slow, cx, cy, zone,
         zone === 'dev' ? -Infinity : colR,
-        zone === 'dev' ? colL      : Infinity,
+        zone === 'dev' ? colL : Infinity,
         SLOW_START, SLOW_START + SLOW_DURATION,
       );
     }
@@ -656,7 +656,7 @@ export function CanvasParticleBackground() {
       const dtN = prevNow > 0 ? Math.min((now - prevNow) / (1000 / 60), 2.5) : 1;
       prevNow = now;
       // Precompute per-frame damping exponents once, interpolated per-particle.
-      const restDampN  = REST_DAMP  ** dtN;
+      const restDampN = REST_DAMP ** dtN;
       const shapeDampN = SHAPE_DAMP ** dtN;
 
       // Re-activate a zone cleared while cursor was still inside it
@@ -686,18 +686,18 @@ export function CanvasParticleBackground() {
           } else {
             // Returning to an already-active saved zone — re-notify React
             const pts = zonePts[activeZone];
-            const cx  = activeZone === 'dev' ? leftCX : rightCX;
+            const cx = activeZone === 'dev' ? leftCX : rightCX;
             if (pts && zoneEmoji[activeZone]) {
               const cy = activeZone === 'dev'
                 ? ZONE_TOP_MARGIN - pts.topY
                 : H - ZONE_BOTTOM_MARGIN - pts.bottomY;
               onZoneActivateRef.current({
                 zone: activeZone, cx, cy,
-                topY:    pts.topY,
+                topY: pts.topY,
                 bottomY: pts.bottomY,
-                minX:    pts.minX,
-                maxX:    pts.maxX,
-                emoji:   zoneEmoji[activeZone]!,
+                minX: pts.minX,
+                maxX: pts.maxX,
+                emoji: zoneEmoji[activeZone]!,
               });
             }
           }
@@ -716,7 +716,7 @@ export function CanvasParticleBackground() {
       if (W >= 768) {
         ctx!.save();
         ctx!.beginPath();
-        ctx!.rect(0,    0, colL,     H);
+        ctx!.rect(0, 0, colL, H);
         ctx!.rect(colR, 0, W - colR, H);
         ctx!.clip();
 
@@ -745,18 +745,18 @@ export function CanvasParticleBackground() {
         for (const p of particles) {
           if (!isShapeParticle(p)) continue;
 
-          const at     = zoneActivatedAtMap[p.zone!]!;
+          const at = zoneActivatedAtMap[p.zone!]!;
           const zoneAge = now - at;
-          const age    = zoneAge - p.startOffset;
-          const ramp   = Math.min(age / SPRING_RAMP, 1);
-          const eased  = ramp * ramp;
+          const age = zoneAge - p.startOffset;
+          const ramp = Math.min(age / SPRING_RAMP, 1);
+          const eased = ramp * ramp;
 
-          const r       = DOT_R + (SHAPE_DOT_R - DOT_R) * eased;
-          const startC  = dark ? 255 : 0;
-          const cr      = Math.round(startC + (p.tr - startC) * eased);
-          const cg      = Math.round(startC + (p.tg - startC) * eased);
-          const cb      = Math.round(startC + (p.tb - startC) * eased);
-          const ca      = 0.5 + 0.5 * eased;
+          const r = DOT_R + (SHAPE_DOT_R - DOT_R) * eased;
+          const startC = dark ? 255 : 0;
+          const cr = Math.round(startC + (p.tr - startC) * eased);
+          const cg = Math.round(startC + (p.tg - startC) * eased);
+          const cb = Math.round(startC + (p.tb - startC) * eased);
+          const ca = 0.5 + 0.5 * eased;
 
           ctx!.fillStyle = `rgba(${cr},${cg},${cb},${ca})`;
           ctx!.beginPath();
@@ -766,9 +766,9 @@ export function CanvasParticleBackground() {
 
         // ── Inner-edge gradient fade (clipped to margin columns) ───────
         // Fades particles toward the content column border.
-        const bgRGB   = dark ? '15,15,15' : '255,255,255';
-        const transp  = `rgba(${bgRGB},0)`;
-        const opaque  = `rgba(${bgRGB},1)`;
+        const bgRGB = dark ? '15,15,15' : '255,255,255';
+        const transp = `rgba(${bgRGB},0)`;
+        const opaque = `rgba(${bgRGB},1)`;
 
         // Left margin inner edge — transparent → opaque toward content
         const gradL = ctx!.createLinearGradient(colL - FADE_W, 0, colL, 0);
@@ -839,33 +839,33 @@ export function CanvasParticleBackground() {
       />
 
       {zones.map(zone => {
-        const info      = zoneInfoMap[zone]!;
-        const visible   = !!buttonVisibleMap[zone];
+        const info = zoneInfoMap[zone]!;
+        const visible = !!buttonVisibleMap[zone];
         const hoverMode = hoverModeMap[zone] ?? 'save';
-        const isSaved   = !!savedEmojis[zone];
+        const isSaved = !!savedEmojis[zone];
 
         // Both zones: label below the emoji, centred on cx.
         const btnLeft = info.cx;
-        const btnTop  = zone === 'dev'
+        const btnTop = zone === 'dev'
           ? info.cy + info.bottomY + 56   // 56px below the left emoji's bottom edge
           : info.cy + info.bottomY + 40;  // 40px below the right emoji's bottom edge
 
         const labelStyle: React.CSSProperties = {
-          position:     'fixed',
-          zIndex:        2,
-          left:          btnLeft,
-          top:           btnTop,
-          transform:    'translateX(-50%)',
-          display:      'flex',
-          alignItems:   'center',
-          gap:          '6px',
-          fontFamily:   'Figtree, system-ui, sans-serif',
-          fontWeight:    500,
-          fontSize:     '15px',
-          lineHeight:   '150%',
-          whiteSpace:   'nowrap',
-          userSelect:   'none',
-          color:        'var(--icon-active)',
+          position: 'fixed',
+          zIndex: 2,
+          left: btnLeft,
+          top: btnTop,
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontFamily: 'Figtree, system-ui, sans-serif',
+          fontWeight: 500,
+          fontSize: '15px',
+          lineHeight: '150%',
+          whiteSpace: 'nowrap',
+          userSelect: 'none',
+          color: 'var(--icon-active)',
         };
 
         return (
@@ -874,8 +874,8 @@ export function CanvasParticleBackground() {
             <div
               style={{
                 ...labelStyle,
-                opacity:       visible ? 1 : 0,
-                transition:   'opacity 0.7s ease',
+                opacity: visible ? 1 : 0,
+                transition: 'opacity 0.7s ease',
                 pointerEvents: visible ? 'auto' : 'none',
               }}
             >
