@@ -196,9 +196,9 @@ function ChatbotChat({
   return (
     <div className="w-full h-full flex flex-col items-start md:pb-[32px] relative">
       <DarkHeader onClose={onClose} />
-      <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start justify-between md:-mb-[32px] relative bg-bg-main flex-1 md:flex-none md:h-[574px] min-h-0 overflow-y-auto">
-        {/* Top: tags + messages */}
-        <div className="flex flex-col gap-[24px] items-start w-full shrink-0 relative">
+      <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start gap-[24px] md:-mb-[32px] relative bg-bg-main flex-1 md:flex-none md:h-[574px] min-h-0">
+        {/* Scrollable content area — grows to fill available height, scrolls when content overflows */}
+        <div className="flex flex-col gap-[24px] items-start w-full flex-1 min-h-0 overflow-y-auto">
           <TagsRow />
           {/* Messages */}
           <div className="flex flex-col items-start w-full shrink-0 relative">
@@ -291,7 +291,7 @@ function ChatbotChat({
             )}
           </AnimatePresence>
         </div>
-        {/* Footer input */}
+        {/* Footer input — always visible at the bottom, never scrolls away */}
         <div className="flex gap-[16px] items-center p-[16px] rounded-[12px] w-full shrink-0 relative bg-bg-main border-[0.5px] border-solid border-border-primary">
           <textarea
             value={input}
