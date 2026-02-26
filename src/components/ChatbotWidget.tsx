@@ -378,53 +378,10 @@ function ChatbotChat({
 export function ChatbotWidget(): React.ReactElement {
   const [state, setState] = useState<ChatbotState>('default');
   const [isHovering, setIsHovering] = useState(false);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const { isChatOpen, openChat, closeChat } = useChatbotContext();
 
   const showExpanded = isHovering && state === 'default';
   const showChat = state === 'chat' || state === 'menu' || state === 'replied';
-
-  // Track the virtual keyboard height using visualViewport to shift the modal up.
-  // iOS Safari/Chrome fire visualViewport resize late or not at all, so we also
-  // listen to focusin/focusout on inputs as a reliable fallback.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const vv = window.visualViewport;
-
-    const applyOffset = () => {
-      if (!vv) return;
-      const offset = window.innerHeight - vv.height;
-      setKeyboardOffset(offset > 50 ? offset : 0);
-    };
-
-    const onVVResize = () => {
-      if (window.innerWidth >= 768) { setKeyboardOffset(0); return; }
-      applyOffset();
-    };
-
-    const onFocusIn = (e: FocusEvent) => {
-      if (window.innerWidth >= 768) return;
-      if (!(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement)) return;
-      // Delay lets the iOS keyboard finish animating before we read viewport height
-      setTimeout(applyOffset, 350);
-    };
-
-    const onFocusOut = (e: FocusEvent) => {
-      if (window.innerWidth >= 768) return;
-      if (!(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement)) return;
-      setKeyboardOffset(0);
-    };
-
-    vv?.addEventListener('resize', onVVResize);
-    document.addEventListener('focusin', onFocusIn);
-    document.addEventListener('focusout', onFocusOut);
-
-    return () => {
-      vv?.removeEventListener('resize', onVVResize);
-      document.removeEventListener('focusin', onFocusIn);
-      document.removeEventListener('focusout', onFocusOut);
-    };
-  }, []);
 
   useEffect(() => {
     if (isChatOpen) {
@@ -446,7 +403,6 @@ export function ChatbotWidget(): React.ReactElement {
   const handleClose = useCallback(() => {
     setState('default');
     setIsHovering(false);
-    setKeyboardOffset(0);
   }, []);
   const handleStartChat = useCallback(() => setState('chat'), []);
   const handleOpenMenu = useCallback(() => setState('menu'), []);
@@ -479,13 +435,6 @@ export function ChatbotWidget(): React.ReactElement {
         aria-label="Quick answer AI"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
-        style={{
-          // Shrink the content area from the bottom so the input rises above
-          // the keyboard. The container stays anchored (top-[48px]/bottom-[24px])
-          // so nothing overflows off-screen.
-          paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : undefined,
-          transition: 'padding-bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
       >
         <motion.div
           layout
