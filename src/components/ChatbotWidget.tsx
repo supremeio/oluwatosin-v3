@@ -393,11 +393,29 @@ export function ChatbotWidget(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChatOpen]);
 
-  // On mobile, use the Visual Viewport API to explicitly reposition the aside
-  // so it always sits within the visible area above the keyboard.
-  // iOS Safari anchors position:fixed to the layout viewport (not visual), so
-  // CSS top/bottom anchors alone are insufficient — the modal sits behind the
-  // keyboard. vv.offsetTop tracks any scroll iOS applies when focusing an input.
+  // On mobile, lock body scroll while chat is open so iOS can't scroll the
+  // document when a textarea is focused. Restore scroll only on the same page
+  // to avoid jumping when the user has navigated away.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 768 || !showChat) return;
+    const scrollY = window.scrollY;
+    const path = window.location.pathname;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      if (window.location.pathname === path) window.scrollTo(0, scrollY);
+    };
+  }, [showChat]);
+
+  // On mobile, use the Visual Viewport API to explicitly position the aside
+  // within the visible area above the keyboard. iOS Safari anchors fixed
+  // elements to the layout viewport, so CSS anchors alone leave the modal
+  // behind the keyboard. We also listen to focusin as a fallback because
+  // vv.resize is unreliable on some iOS versions.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const vv = window.visualViewport;
@@ -411,13 +429,20 @@ export function ChatbotWidget(): React.ReactElement {
       el.style.bottom = 'auto';
     };
 
+    const onFocusIn = (e: FocusEvent) => {
+      if (!(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement)) return;
+      setTimeout(reposition, 350);
+    };
+
     reposition();
     vv.addEventListener('resize', reposition);
     vv.addEventListener('scroll', reposition);
+    document.addEventListener('focusin', onFocusIn);
 
     return () => {
       vv.removeEventListener('resize', reposition);
       vv.removeEventListener('scroll', reposition);
+      document.removeEventListener('focusin', onFocusIn);
       const el = asideRef.current;
       if (el) { el.style.top = ''; el.style.height = ''; el.style.bottom = ''; }
     };
@@ -477,10 +502,10 @@ export function ChatbotWidget(): React.ReactElement {
             {showChat && (
               <motion.div
                 key="chat"
-                initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 12, scale: 0.98 }}
-                transition={{ duration: 0.25, ease: EASE_OUT }}
+                initial={{ opacity: 0, y: '100dvh' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: '100dvh' }}
+                transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
                 className="h-full"
               >
                 <ChatbotChat
