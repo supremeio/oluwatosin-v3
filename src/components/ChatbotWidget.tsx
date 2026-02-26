@@ -393,6 +393,21 @@ export function ChatbotWidget(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChatOpen]);
 
+  // On mount, clear any stale scroll-lock styles left by a mid-chat reload.
+  // Without this, reloading while the chat is open leaves body with
+  // position:fixed; top:-Npx, causing wrong scroll restoration.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const { style } = document.body;
+    if (style.position === 'fixed' && style.top) {
+      const scrollY = -parseInt(style.top, 10) || 0;
+      style.position = '';
+      style.top = '';
+      style.width = '';
+      window.scrollTo(0, scrollY);
+    }
+  }, []);
+
   // On mobile, lock body scroll while chat is open so iOS can't scroll the
   // document when a textarea is focused. Restore scroll only on the same page
   // to avoid jumping when the user has navigated away.
@@ -403,7 +418,17 @@ export function ChatbotWidget(): React.ReactElement {
     document.body.style.position = 'fixed';
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = '100%';
+
+    // Clean up before reload so scroll position isn't corrupted
+    const onBeforeUnload = () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+
     return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
       document.body.style.position = '';
       document.body.style.top = '';
       document.body.style.width = '';
