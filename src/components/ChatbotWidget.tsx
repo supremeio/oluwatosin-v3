@@ -53,7 +53,7 @@ function DarkHeader({ onClose }: { onClose: () => void }): React.ReactElement {
   return (
     <div className="w-full flex items-start justify-between self-stretch rounded-t-[32px] pt-[24px] px-[24px] pb-[48px] -mb-[32px] shrink-0 relative bg-bg-on-colour">
       <div className="flex-[1_0_0] flex flex-col gap-[8px] items-start justify-center min-w-0 relative">
-        <div className="relative shrink-0 w-[32px] h-[32px]">
+        <div className="relative shrink-0 w-[32px] h-[32px] overflow-hidden rounded-full">
           <motion.div
             className="absolute inset-0 rounded-full bg-[#4169FF] blur-md"
             initial={{ opacity: 0.4, scale: 0.8 }}
@@ -119,7 +119,7 @@ function ChatbotDefault({ onExpand }: { onExpand: () => void }): React.ReactElem
       aria-label="Open Quick answer AI"
     >
       <div className="flex-1 flex flex-col gap-[8px] items-start min-w-0">
-        <div className="relative w-[32px] h-[32px] shrink-0">
+        <div className="relative w-[32px] h-[32px] shrink-0 overflow-hidden rounded-full">
           <motion.div
             className="absolute inset-0 rounded-full bg-[#4169FF] blur-md"
             initial={{ opacity: 0.4, scale: 0.8 }}
@@ -210,7 +210,7 @@ function ChatbotChat({
           {/* Messages */}
           <div className="flex flex-col items-start w-full shrink-0 relative">
             <div className="flex gap-[8px] items-start pt-[8px] w-full shrink-0 relative">
-              <div className="relative shrink-0 w-[32px] h-[32px]">
+              <div className="relative shrink-0 w-[32px] h-[32px] overflow-hidden rounded-full">
                 <motion.div
                   className="absolute inset-0 rounded-full bg-[#4169FF] blur-md"
                   initial={{ opacity: 0.4, scale: 0.8 }}
@@ -424,7 +424,7 @@ export function ChatbotWidget(): React.ReactElement {
     const reposition = () => {
       const el = asideRef.current;
       if (!el || window.innerWidth >= 768) return;
-      el.style.top    = `${vv.offsetTop + 24}px`;
+      el.style.top = `${vv.offsetTop + 24}px`;
       el.style.height = `${vv.height - 48}px`;
       el.style.bottom = 'auto';
     };
@@ -511,7 +511,7 @@ export function ChatbotWidget(): React.ReactElement {
                 animate={{ opacity: 1, y: 0, scaleX: 1, scaleY: 1 }}
                 exit={{ opacity: 0, y: '82vh', scaleX: 0.18, scaleY: 0.04 }}
                 transition={{
-                  y:      { type: 'spring', stiffness: 440, damping: 38 },
+                  y: { type: 'spring', stiffness: 440, damping: 38 },
                   scaleX: { type: 'spring', stiffness: 300, damping: 30 },
                   scaleY: { type: 'spring', stiffness: 190, damping: 26 },
                   opacity: { duration: 0.14 },

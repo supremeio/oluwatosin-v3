@@ -25,15 +25,13 @@ export function AiGlowingIcon({ className = '' }: { className?: string }) {
                 <circle cx="16" cy="16" r="16" fill="#0E1233" />
 
                 <motion.g
-                    filter="url(#siri-blur)"
                     initial={{ rotate: 0 }}
                     animate={{ rotate: 360 }}
                     transition={{ duration: 9, repeat: Infinity, ease: 'linear' }}
                     style={{
-                        WebkitFilter: "url(#siri-blur)",
+                        filter: 'blur(4.5px)',
+                        WebkitFilter: 'blur(4.5px)',
                         transformOrigin: '16px 16px',
-                        willChange: 'transform',
-                        transform: 'translateZ(0)' // Force iOS hardware acceleration for the blur filter
                     }}
                 >
                     <motion.ellipse
@@ -92,14 +90,6 @@ export function AiGlowingIcon({ className = '' }: { className?: string }) {
                     />
                 </motion.g>
             </g>
-
-            <defs>
-                <filter id="siri-blur" x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
-                    <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-                    <feGaussianBlur stdDeviation="4.5" result="effect1_foregroundBlur_705_19939" />
-                </filter>
-            </defs>
         </svg>
     );
 }
