@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatbotContext } from '@/providers/ChatbotProvider';
@@ -184,6 +184,13 @@ function ChatbotChat({
   onSendUserMessage: (q: string) => void;
 }): React.ReactElement {
   const [input, setInput] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll messages to bottom on mount and whenever a new message is added
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [state]);
 
   const handleSend = useCallback(() => {
     const text = input.trim();
@@ -198,7 +205,7 @@ function ChatbotChat({
       <DarkHeader onClose={onClose} />
       <div className="w-full rounded-[32px] p-[24px] flex flex-col items-start gap-[24px] md:-mb-[32px] relative bg-bg-main flex-1 md:flex-none md:h-[574px] min-h-0">
         {/* Scrollable content area — grows to fill available height, scrolls when content overflows */}
-        <div className="flex flex-col gap-[24px] items-start w-full flex-1 min-h-0 overflow-y-auto">
+        <div ref={scrollRef} className="flex flex-col gap-[24px] items-start w-full flex-1 min-h-0 overflow-y-auto">
           <TagsRow />
           {/* Messages */}
           <div className="flex flex-col items-start w-full shrink-0 relative">
@@ -466,7 +473,7 @@ export function ChatbotWidget(): React.ReactElement {
 
       <aside
         className={`fixed z-30 pointer-events-none ${showChat
-          ? 'top-[48px] bottom-[24px] left-[24px] right-[24px] md:inset-auto md:hidden min-[1372px]:block min-[1372px]:inset-auto min-[1372px]:top-auto min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
+          ? 'top-[24px] bottom-[24px] left-[24px] right-[24px] md:inset-auto md:hidden min-[1372px]:block min-[1372px]:inset-auto min-[1372px]:top-auto min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
           : 'hidden min-[1372px]:block min-[1372px]:bottom-[40px] min-[1372px]:left-[16px] min-[1372px]:w-[min(440px,calc(50vw_-_346px))]'
           }`}
         aria-label="Quick answer AI"
