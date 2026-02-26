@@ -210,6 +210,9 @@ class Particle {
 
   update(
     now: number,
+    dtN: number,
+    restDampN: number,
+    shapeDampN: number,
     zoneActivatedAtMap: Partial<Record<NonNullable<Zone>, number>>,
     mx: number, my: number,
     cvSpeed: number,
@@ -230,12 +233,11 @@ class Particle {
       }
     }
 
-    let gx: number, gy: number, k: number, damp: number;
+    let gx: number, gy: number, k: number;
 
     if (inShape) {
-      gx   = this.tx; gy   = this.ty;
-      k    = REST_K    + (SHAPE_K    - REST_K)    * eased;
-      damp = REST_DAMP + (SHAPE_DAMP - REST_DAMP) * eased;
+      gx = this.tx; gy = this.ty;
+      k  = REST_K + (SHAPE_K - REST_K) * eased;
 
       if (eased >= 1) [gx, gy] = addRepulsion(gx, gy, this.x, this.y, mx, my, cvSpeed);
     } else {
@@ -247,13 +249,17 @@ class Particle {
         + Math.cos(now * DRIFT_FREQ2 + this.sy2) * DRIFT_AMP2;
 
       [gx, gy] = addRepulsion(gx, gy, this.x, this.y, mx, my, cvSpeed);
-      k = REST_K; damp = REST_DAMP;
+      k = REST_K;
     }
 
-    this.vx = (this.vx + (gx - this.x) * k) * damp;
-    this.vy = (this.vy + (gy - this.y) * k) * damp;
-    this.x += this.vx;
-    this.y += this.vy;
+    // Delta-time normalised spring — makes physics frame-rate independent.
+    // dampN is linearly interpolated between the two precomputed exponents
+    // (REST_DAMP^dtN and SHAPE_DAMP^dtN) so we avoid a Math.pow per particle.
+    const dampN = restDampN + (shapeDampN - restDampN) * eased;
+    this.vx = (this.vx + (gx - this.x) * k * dtN) * dampN;
+    this.vy = (this.vy + (gy - this.y) * k * dtN) * dampN;
+    this.x += this.vx * dtN;
+    this.y += this.vy * dtN;
   }
 
   draw(ctx: CanvasRenderingContext2D, r: number) {
@@ -641,9 +647,17 @@ export function CanvasParticleBackground() {
 
     // ── Render loop ───────────────────────────────────────────────────────
     let raf: number;
+    let prevNow = 0;
 
     function loop() {
       const now = performance.now();
+      // Normalised delta-time (1.0 = one 60 fps frame). Capped at 2.5× to
+      // prevent instability after tab-switch or long pauses.
+      const dtN = prevNow > 0 ? Math.min((now - prevNow) / (1000 / 60), 2.5) : 1;
+      prevNow = now;
+      // Precompute per-frame damping exponents once, interpolated per-particle.
+      const restDampN  = REST_DAMP  ** dtN;
+      const shapeDampN = SHAPE_DAMP ** dtN;
 
       // Re-activate a zone cleared while cursor was still inside it
       if (pendingReactivateRef.current !== null) {
@@ -692,7 +706,7 @@ export function CanvasParticleBackground() {
         prevActiveZone = activeZone;
       }
 
-      cvSpeed *= SPEED_DECAY;
+      cvSpeed *= SPEED_DECAY ** dtN;
 
       const dark = document.documentElement.getAttribute('data-theme') === 'dark';
 
@@ -716,7 +730,7 @@ export function CanvasParticleBackground() {
 
         // ── Physics update ──────────────────────────────────────────────
         for (const p of particles) {
-          p.update(now, zoneActivatedAtMap, mx, my, cvSpeed);
+          p.update(now, dtN, restDampN, shapeDampN, zoneActivatedAtMap, mx, my, cvSpeed);
         }
 
         // ── Pass 1: ambient dots ────────────────────────────────────────
