@@ -20,8 +20,8 @@ const AI_GREETING = [
 
 const FONT_SALT: React.CSSProperties = { fontFeatureSettings: "'salt' 1" };
 const FONT_LNUM_TNUM: React.CSSProperties = { fontFeatureSettings: "'salt' 1, 'lnum' 1, 'tnum' 1" };
-const EASE_OUT = [0.16, 1, 0.3, 1] as const;
-const LAYOUT_SPRING = { type: 'spring' as const, stiffness: 360, damping: 32, mass: 0.8 };
+const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+const LAYOUT_SPRING = { type: 'spring' as const, stiffness: 200, damping: 28, mass: 0.6 };
 
 type ChatbotState = 'default' | 'chat' | 'menu' | 'replied';
 
@@ -379,7 +379,7 @@ export function ChatbotWidget(): React.ReactElement {
   const [state, setState] = useState<ChatbotState>('default');
   const [isHovering, setIsHovering] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
-  const { isChatOpen, openChat, closeChat, originRect } = useChatbotContext();
+  const { isChatOpen, openChat, closeChat } = useChatbotContext();
 
   const showExpanded = isHovering && state === 'default';
   const showChat = state === 'chat' || state === 'menu' || state === 'replied';
@@ -501,7 +501,7 @@ export function ChatbotWidget(): React.ReactElement {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.35, ease: EASE_OUT }}
             className={`fixed top-0 left-0 right-0 h-[200vh] z-20 bg-overlay-page ${showChat ? '' : 'hidden'} min-[1372px]:block`}
             aria-hidden
           />
@@ -524,50 +524,32 @@ export function ChatbotWidget(): React.ReactElement {
           className="pointer-events-auto h-full md:h-auto overflow-hidden"
         >
           <AnimatePresence mode="popLayout">
-            {showChat && (() => {
-              // Compute transform-origin relative to the aside element
-              const aside = asideRef.current;
-              let origin = 'center calc(100% + 48px)'; // fallback: below aside (where nav sits)
-              if (originRect && aside) {
-                const ar = aside.getBoundingClientRect();
-                const ox = originRect.left + originRect.width / 2 - ar.left;
-                const oy = originRect.top + originRect.height / 2 - ar.top;
-                origin = `${ox}px ${oy}px`;
-              }
-              return (
-                <motion.div
-                  key="chat"
-                  style={{ transformOrigin: origin }}
-                  initial={{ opacity: 0, scale: 0.08 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.08 }}
-                  transition={{
-                    type: 'spring',
-                    stiffness: 260,
-                    damping: 30,
-                    mass: 0.8,
-                    opacity: { duration: 0.15 },
-                  }}
-                  className="h-full"
-                >
-                  <ChatbotChat
-                    state={state}
-                    onClose={handleClose}
-                    onCloseMenu={handleCloseMenu}
-                    onOpenMenu={handleOpenMenu}
-                    onSelectQuestion={handleSelectQuestion}
-                    onSendUserMessage={handleSendUserMessage}
-                  />
-                </motion.div>
-              );
-            })()}
+            {showChat && (
+              <motion.div
+                key="chat"
+                initial={{ opacity: 0, y: 10, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.97 }}
+                transition={{ duration: 0.3, ease: EASE_OUT }}
+                className="h-full"
+              >
+                <ChatbotChat
+                  state={state}
+                  onClose={handleClose}
+                  onCloseMenu={handleCloseMenu}
+                  onOpenMenu={handleOpenMenu}
+                  onSelectQuestion={handleSelectQuestion}
+                  onSendUserMessage={handleSendUserMessage}
+                />
+              </motion.div>
+            )}
             {!showChat && showExpanded && (
               <motion.div
                 key="hover"
-                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                initial={{ opacity: 0, y: 10, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ duration: 0.2, ease: EASE_OUT }}
+                exit={{ opacity: 0, y: 10, scale: 0.97 }}
+                transition={{ duration: 0.25, ease: EASE_OUT }}
               >
                 <ChatbotHover onStartChat={handleStartChat} onClose={handleClose} />
               </motion.div>

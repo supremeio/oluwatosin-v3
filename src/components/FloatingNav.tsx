@@ -30,6 +30,7 @@ export function FloatingNav(): React.ReactElement {
   const { theme } = useTheme();
   const pathname = usePathname();
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   // Once pathname catches up to the pending destination, clear it
   useEffect(() => {
@@ -55,6 +56,7 @@ export function FloatingNav(): React.ReactElement {
             : item.label === currentPageLabel;
 
           const hasRoute = item.href !== '#';
+          const isHovered = hoveredIndex === i;
 
           const content = (
             <>
@@ -80,7 +82,17 @@ export function FloatingNav(): React.ReactElement {
               key={item.label}
               className="bg-bg-secondary flex items-center p-[2px] rounded-[40px] shrink-0 relative"
               style={{ zIndex: 6 - i }}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
             >
+              {/* Hover label — centered above the tab */}
+              <span
+                className={`absolute bottom-[calc(100%_+_8px)] left-1/2 -translate-x-1/2 whitespace-nowrap font-figtree font-medium text-[14px] leading-normal text-text-primary transition-all duration-200 pointer-events-none ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[4px]'
+                  }`}
+              >
+                {item.label === 'Chatbot' ? 'Oluwatosin' : item.label}
+              </span>
+
               {hasRoute ? (
                 <Link
                   href={item.href}
