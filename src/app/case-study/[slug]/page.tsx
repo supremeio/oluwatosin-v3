@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { ProfileHeader } from '@/components/ProfileHeader';
@@ -35,6 +36,7 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps): Pro
       {/* Floating back button (left) + reading progress (right) — fixed positioned, no layout impact */}
       <CaseStudyHeader sectionCount={5} activeSectionIndex={1} />
 
+
       {/* Profile header — matches homepage layout */}
       <ProfileHeader />
 
@@ -43,6 +45,17 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps): Pro
 
         {/* Project info: title + hero image + metadata */}
         <div className="flex flex-col gap-[24px]">
+          {/* Mobile back button */}
+          <Link
+            href="/"
+            className="flex md:hidden gap-[4px] items-center text-text-primary"
+            aria-label="Back to home"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="shrink-0" aria-hidden>
+              <path d="M4 10H14C15.7239 10 17.3772 10.6848 18.5962 11.9038C19.8152 13.1228 20.5 14.7761 20.5 16.5V18.5M4 10L9 5M4 10L9 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="font-figtree font-normal italic text-[16px] leading-normal">Back</span>
+          </Link>
           <p
             className="font-figtree font-semibold text-[16px] leading-[1.45] tracking-[-0.32px] text-text-primary"
             style={{ fontFeatureSettings: "'lnum', 'tnum'" }}
