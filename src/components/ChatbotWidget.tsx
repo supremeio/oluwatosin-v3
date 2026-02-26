@@ -502,10 +502,20 @@ export function ChatbotWidget(): React.ReactElement {
             {showChat && (
               <motion.div
                 key="chat"
-                initial={{ opacity: 0, y: '100dvh' }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: '100dvh' }}
-                transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
+                // Genie effect: anchored at bottom-centre (the nav button origin).
+                // y shoots up fast; scaleX follows at medium pace; scaleY stretches
+                // slowest — so the top reaches its final position while the bottom
+                // is still "pulling away" from the button, just like the Apple dock.
+                style={{ transformOrigin: 'bottom center' }}
+                initial={{ opacity: 0, y: '82vh', scaleX: 0.18, scaleY: 0.04 }}
+                animate={{ opacity: 1, y: 0, scaleX: 1, scaleY: 1 }}
+                exit={{ opacity: 0, y: '82vh', scaleX: 0.18, scaleY: 0.04 }}
+                transition={{
+                  y:      { type: 'spring', stiffness: 440, damping: 38 },
+                  scaleX: { type: 'spring', stiffness: 300, damping: 30 },
+                  scaleY: { type: 'spring', stiffness: 190, damping: 26 },
+                  opacity: { duration: 0.14 },
+                }}
                 className="h-full"
               >
                 <ChatbotChat
